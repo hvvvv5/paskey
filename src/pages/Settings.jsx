@@ -5,6 +5,7 @@ import { useVault } from '@/components/paskey/VaultContext';
 import { buildBackup, downloadBackup, restoreBackup } from '@/lib/backup';
 import NativeNotice from '@/components/paskey/NativeNotice';
 import ChangeMasterPassword from '@/components/paskey/ChangeMasterPassword';
+import RecoveryEmailSettings from '@/components/paskey/RecoveryEmailSettings';
 import SettingsSelect from '@/components/paskey/SettingsSelect';
 import DeleteAccountDialog from '@/components/paskey/DeleteAccountDialog';
 
@@ -54,6 +55,7 @@ export default function Settings() {
 
       <h2 className="mt-6 text-xs uppercase tracking-widest text-[#AEB4BE]">Security</h2>
       <ChangeMasterPassword />
+      <RecoveryEmailSettings />
       <Row>
         <span className="flex-1 text-white">Biometric unlock</span>
         <input

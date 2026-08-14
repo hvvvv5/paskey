@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { Fingerprint } from 'lucide-react';
 import Logo from './Logo';
 import { useVault } from './VaultContext';
+import ForgotMasterPassword from './ForgotMasterPassword';
 
 export default function UnlockScreen() {
   const { unlock, settings } = useVault();
   const [pw, setPw] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -40,6 +42,10 @@ export default function UnlockScreen() {
         </button>
       </form>
 
+      <button type="button" onClick={() => setForgot(true)} className="mt-4 w-full text-center text-xs text-[#AEB4BE] underline decoration-dotted">
+        Forgot Master Password?
+      </button>
+
       {settings.biometricUnlock && (
         <div className="mt-6 flex items-center gap-3 rounded-xl border border-white/10 p-4">
           <Fingerprint className="h-5 w-5" style={{ color: '#C8A96B' }} aria-hidden="true" />
@@ -49,6 +55,8 @@ export default function UnlockScreen() {
           </p>
         </div>
       )}
+
+      {forgot && <ForgotMasterPassword onClose={() => setForgot(false)} />}
     </div>
   );
 }
