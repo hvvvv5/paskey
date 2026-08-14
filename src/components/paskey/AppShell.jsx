@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Lock, Search } from 'lucide-react';
 import { VaultProvider, useVault } from './VaultContext';
@@ -31,28 +31,59 @@ function Header() {
   );
 }
 
+const MAIN_TABS = new Set(['/', '/generator', '/security', '/settings']);
+
+// iOS-style push (dir >= 0): new screen enters from the right, old exits left.
+// pop (dir < 0): new screen enters from the left, old exits right.
+const pageVariants = {
+  enter: (dir) => ({ x: dir >= 0 ? '100%' : '-28%', opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir) => ({ x: dir >= 0 ? '-28%' : '100%', opacity: 0 }),
+};
+
 function Gate() {
   const { hasVault, unlocked } = useVault();
   const location = useLocation();
+  const stackRef = useRef([location.pathname]);
+  const [direction, setDirection] = useState(0);
+
+  useEffect(() => {
+    const stack = stackRef.current;
+    const next = location.pathname;
+    if (stack.length >= 2 && stack[stack.length - 2] === next) {
+      stack.pop();
+      setDirection(-1);
+    } else if (stack[stack.length - 1] !== next) {
+      stack.push(next);
+      setDirection(1);
+    }
+  }, [location.pathname]);
+
   if (!hasVault) return <MasterPasswordSetup />;
   if (!unlocked) return <UnlockScreen />;
+
+  const showChrome = MAIN_TABS.has(location.pathname);
+
   return (
     <>
-      <Header />
-      <main className="mx-auto max-w-xl">
-        <AnimatePresence mode="wait" initial={false}>
+      {showChrome && <Header />}
+      <main className="relative mx-auto max-w-xl overflow-hidden">
+        <AnimatePresence mode="popLayout" initial={false} custom={direction}>
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
+            className="w-full"
+            custom={direction}
+            variants={pageVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ type: 'tween', ease: [0.32, 0.72, 0, 1], duration: 0.34 }}
           >
             <Outlet />
           </motion.div>
         </AnimatePresence>
       </main>
-      <BottomNav />
+      {showChrome && <BottomNav />}
     </>
   );
 }

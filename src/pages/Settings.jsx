@@ -5,12 +5,14 @@ import { useVault } from '@/components/paskey/VaultContext';
 import { buildBackup, downloadBackup, restoreBackup } from '@/lib/backup';
 import NativeNotice from '@/components/paskey/NativeNotice';
 import ChangeMasterPassword from '@/components/paskey/ChangeMasterPassword';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import SettingsSelect from '@/components/paskey/SettingsSelect';
 import DeleteAccountDialog from '@/components/paskey/DeleteAccountDialog';
 
 const LOCK_OPTIONS = [
   [0, 'Immediately'], [1, '1 minute'], [5, '5 minutes'], [15, '15 minutes'], [30, '30 minutes'], [-1, 'Never'],
 ];
+
+const CLIPBOARD_OPTIONS = [0, 15, 30, 60].map((s) => [s, s === 0 ? 'Never' : `${s} seconds`]);
 
 function Row({ children }) {
   return <div className="flex items-center gap-3 border-b border-white/5 py-4 text-sm">{children}</div>;
@@ -61,25 +63,23 @@ export default function Settings() {
       </Row>
       <Row>
         <span className="flex-1 text-white">Auto lock</span>
-        <Select value={String(settings.autoLockMinutes)} onValueChange={(v) => updateSettings({ autoLockMinutes: Number(v) })}>
-          <SelectTrigger aria-label="Auto lock timeout" className="w-40 rounded-lg border-white/10 bg-[#070707] text-[#AEB4BE]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="border-white/10 bg-[#070707] text-white">
-            {LOCK_OPTIONS.map(([v, l]) => <SelectItem key={v} value={String(v)}>{l}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <SettingsSelect
+          ariaLabel="Auto lock timeout"
+          value={settings.autoLockMinutes}
+          onValueChange={(v) => updateSettings({ autoLockMinutes: v })}
+          options={LOCK_OPTIONS}
+          triggerClass="w-40 rounded-lg border-white/10 bg-[#070707]"
+        />
       </Row>
       <Row>
         <span className="flex-1 text-white">Clear clipboard after</span>
-        <Select value={String(settings.clipboardClearSeconds)} onValueChange={(v) => updateSettings({ clipboardClearSeconds: Number(v) })}>
-          <SelectTrigger aria-label="Clipboard protection" className="w-40 rounded-lg border-white/10 bg-[#070707] text-[#AEB4BE]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="border-white/10 bg-[#070707] text-white">
-            {[0, 15, 30, 60].map((s) => <SelectItem key={s} value={String(s)}>{s === 0 ? 'Never' : `${s} seconds`}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <SettingsSelect
+          ariaLabel="Clipboard protection"
+          value={settings.clipboardClearSeconds}
+          onValueChange={(v) => updateSettings({ clipboardClearSeconds: v })}
+          options={CLIPBOARD_OPTIONS}
+          triggerClass="w-40 rounded-lg border-white/10 bg-[#070707]"
+        />
       </Row>
       <Row>
         <span className="flex-1 text-white">Screenshot protection</span>

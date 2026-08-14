@@ -34,7 +34,15 @@ export default function ItemDetail() {
         <span className="ml-auto flex gap-1">
           <button
             type="button" aria-label="Toggle favorite"
-            onClick={async () => { const f = !item.favorite; await toggleFavorite(cat.key, id, f); setItem({ ...item, favorite: f }); }}
+            onClick={async () => {
+              const prev = item.favorite;
+              setItem({ ...item, favorite: !prev });
+              try {
+                await toggleFavorite(cat.key, id, !prev);
+              } catch {
+                setItem((cur) => ({ ...cur, favorite: prev }));
+              }
+            }}
             className="rounded-lg p-2 text-[#AEB4BE] hover:text-white"
           >
             <Star className="h-5 w-5" style={item.favorite ? { color: '#C8A96B' } : undefined} />
