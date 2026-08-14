@@ -1,10 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Download, Upload } from 'lucide-react';
+import { ChevronRight, Download, Trash2, Upload } from 'lucide-react';
 import { useVault } from '@/components/paskey/VaultContext';
 import { buildBackup, downloadBackup, restoreBackup } from '@/lib/backup';
 import NativeNotice from '@/components/paskey/NativeNotice';
 import ChangeMasterPassword from '@/components/paskey/ChangeMasterPassword';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import DeleteAccountDialog from '@/components/paskey/DeleteAccountDialog';
 
 const LOCK_OPTIONS = [
   [0, 'Immediately'], [1, '1 minute'], [5, '5 minutes'], [15, '15 minutes'], [30, '30 minutes'], [-1, 'Never'],
@@ -17,6 +19,7 @@ function Row({ children }) {
 export default function Settings() {
   const { settings, updateSettings, config, lock } = useVault();
   const [msg, setMsg] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const fileRef = useRef(null);
 
   const exportBackup = async () => {
@@ -58,23 +61,25 @@ export default function Settings() {
       </Row>
       <Row>
         <span className="flex-1 text-white">Auto lock</span>
-        <select
-          aria-label="Auto lock timeout" value={settings.autoLockMinutes}
-          onChange={(e) => updateSettings({ autoLockMinutes: Number(e.target.value) })}
-          className="rounded-lg border border-white/10 bg-[#070707] px-3 py-2 text-[#AEB4BE]"
-        >
-          {LOCK_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
+        <Select value={String(settings.autoLockMinutes)} onValueChange={(v) => updateSettings({ autoLockMinutes: Number(v) })}>
+          <SelectTrigger aria-label="Auto lock timeout" className="w-40 rounded-lg border-white/10 bg-[#070707] text-[#AEB4BE]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="border-white/10 bg-[#070707] text-white">
+            {LOCK_OPTIONS.map(([v, l]) => <SelectItem key={v} value={String(v)}>{l}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </Row>
       <Row>
         <span className="flex-1 text-white">Clear clipboard after</span>
-        <select
-          aria-label="Clipboard protection" value={settings.clipboardClearSeconds}
-          onChange={(e) => updateSettings({ clipboardClearSeconds: Number(e.target.value) })}
-          className="rounded-lg border border-white/10 bg-[#070707] px-3 py-2 text-[#AEB4BE]"
-        >
-          {[0, 15, 30, 60].map((s) => <option key={s} value={s}>{s === 0 ? 'Never' : `${s} seconds`}</option>)}
-        </select>
+        <Select value={String(settings.clipboardClearSeconds)} onValueChange={(v) => updateSettings({ clipboardClearSeconds: Number(v) })}>
+          <SelectTrigger aria-label="Clipboard protection" className="w-40 rounded-lg border-white/10 bg-[#070707] text-[#AEB4BE]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="border-white/10 bg-[#070707] text-white">
+            {[0, 15, 30, 60].map((s) => <SelectItem key={s} value={String(s)}>{s === 0 ? 'Never' : `${s} seconds`}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </Row>
       <Row>
         <span className="flex-1 text-white">Screenshot protection</span>
@@ -130,6 +135,20 @@ export default function Settings() {
       <button type="button" onClick={lock} className="mt-8 w-full rounded-xl border border-white/10 py-3.5 text-sm text-white active:scale-[0.98]">
         Lock PasKey now
       </button>
+
+      <h2 className="mt-10 text-xs uppercase tracking-widest text-red-400/80">Danger zone</h2>
+      <p className="mt-2 text-xs leading-relaxed text-[#AEB4BE]">
+        Deleting your account is permanent. It removes your Base44 user record; your local encrypted vault remains on
+        this device until you clear app data.
+      </p>
+      <button
+        type="button"
+        onClick={() => setDeleteOpen(true)}
+        className="mt-3 inline-flex items-center gap-2 rounded-xl border border-red-500/40 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 active:scale-[0.98]"
+      >
+        <Trash2 className="h-4 w-4" /> Delete account
+      </button>
+      <DeleteAccountDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} />
 
       <p className="mt-8 text-center text-[11px] text-[#AEB4BE]/60">PasKey · version 1.0.0 · local-first vault</p>
     </div>

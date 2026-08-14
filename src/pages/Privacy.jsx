@@ -1,5 +1,6 @@
 import React from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
 
 const POINTS = [
   'No account required.',
@@ -11,9 +12,15 @@ const POINTS = [
 ];
 
 export default function Privacy() {
+  const navigate = useNavigate();
   return (
     <div className="px-5 pb-28 pt-6">
-      <h1 className="font-heading text-2xl text-white">Privacy</h1>
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={() => navigate(-1)} aria-label="Back" className="rounded-lg p-2 text-[#AEB4BE] hover:text-white active:scale-95">
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="font-heading text-2xl text-white">Privacy</h1>
+      </div>
       <p className="mt-1 text-sm text-[#AEB4BE]">Local-first by design.</p>
       <ul className="mt-6 space-y-3">
         {POINTS.map((p) => (

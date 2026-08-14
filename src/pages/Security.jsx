@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Copy, Fingerprint, Timer } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, Fingerprint, Timer } from 'lucide-react';
 import { listAll } from '@/lib/vaultData';
 import { scorePassword } from '@/lib/password';
 import { useVault } from '@/components/paskey/VaultContext';
@@ -8,6 +9,7 @@ import NativeNotice from '@/components/paskey/NativeNotice';
 
 export default function Security() {
   const { dec, settings } = useVault();
+  const navigate = useNavigate();
   const [audit, setAudit] = useState(null);
 
   useEffect(() => {
@@ -52,7 +54,12 @@ export default function Security() {
 
   return (
     <div className="px-5 pb-28 pt-6">
-      <h1 className="font-heading text-2xl text-white">Security Center</h1>
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={() => navigate(-1)} aria-label="Back" className="rounded-lg p-2 text-[#AEB4BE] hover:text-white active:scale-95">
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="font-heading text-2xl text-white">Security Center</h1>
+      </div>
       <p className="mt-1 text-sm text-[#AEB4BE]">Analysis runs entirely on this device. Nothing is uploaded.</p>
 
       <div className="mt-6 rounded-2xl border border-[#C8A96B]/25 bg-gradient-to-br from-white/[0.06] to-transparent p-6 text-center">

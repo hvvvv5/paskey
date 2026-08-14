@@ -13,7 +13,8 @@ export default function BottomNav() {
   return (
     <nav
       aria-label="Main navigation"
-      className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/10 bg-[#070707]/95 backdrop-blur"
+      className="pk-no-select fixed bottom-0 left-0 right-0 z-30 border-t border-white/10 bg-[#070707]/95 backdrop-blur"
+    style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="mx-auto flex max-w-xl">
         {ITEMS.map(({ to, label, Icon }) => (

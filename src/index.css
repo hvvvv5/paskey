@@ -100,3 +100,25 @@
 .pk-shimmer {
   animation: pk-shimmer 900ms ease-out forwards;
 }
+
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
+/* Prevent iOS zoom: keep form controls at >=16px (overrides text-sm utilities) */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+/* Prevent accidental text selection on headers, logos, and buttons */
+h1,
+h2,
+h3,
+button,
+.pk-no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}

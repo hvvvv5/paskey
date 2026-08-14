@@ -7,12 +7,14 @@ import { listAll } from '@/lib/vaultData';
 import CategoryIcon from '@/components/paskey/CategoryIcon';
 import ItemRow from '@/components/paskey/ItemRow';
 import AddMenu from '@/components/paskey/AddMenu';
+import PullToRefresh from '@/components/paskey/PullToRefresh';
 
 export default function Vault() {
   const [items, setItems] = useState(null);
   const [q, setQ] = useState('');
 
   useEffect(() => { listAll().then(setItems); }, []);
+  const refresh = async () => { setItems(await listAll()); };
 
   const counts = useMemo(() => {
     const map = {};
@@ -35,6 +37,8 @@ export default function Vault() {
   const recent = (items || []).slice(0, 4);
 
   return (
+    <>
+    <PullToRefresh onRefresh={refresh}>
     <div className="px-5 pb-28 pt-5">
       <div className="relative">
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#AEB4BE]" aria-hidden="true" />
@@ -94,7 +98,9 @@ export default function Vault() {
           )}
         </>
       )}
-      <AddMenu />
     </div>
+    </PullToRefresh>
+    <AddMenu />
+    </>
   );
 }
