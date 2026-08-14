@@ -1,0 +1,59 @@
+{
+  "name": "BankAccount",
+  "type": "object",
+  "properties": {
+    "bankName": {
+      "type": "string"
+    },
+    "accountHolder": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    },
+    "password": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "accountNumber": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "pin": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "iban": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "swift": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "favorite": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "bankName"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

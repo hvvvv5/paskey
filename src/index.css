@@ -90,3 +90,13 @@
     @apply bg-background text-foreground font-body;
   }
 }
+
+@keyframes pk-shimmer {
+  0% { transform: translateX(0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateX(100px); opacity: 0; }
+}
+
+.pk-shimmer {
+  animation: pk-shimmer 900ms ease-out forwards;
+}
