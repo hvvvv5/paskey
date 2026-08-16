@@ -15,7 +15,7 @@ export async function buildBackup(config) {
     format: 'PasKey Encrypted Vault',
     version: 1,
     exportedAt: new Date().toISOString(),
-    encryption: { cipher: 'AES-256-GCM', kdf: config.kdf, iterations: config.iterations, salt: config.salt, verifier: config.verifier },
+    encryption: { cipher: 'AES-256-GCM', kdf: config.kdf, iterations: config.iterations, kekSalt: config.kekSalt, verifier: config.verifier },
     data,
   };
 }
@@ -33,7 +33,7 @@ export function downloadBackup(backup) {
 export async function restoreBackup(file, config) {
   const parsed = JSON.parse(await file.text());
   if (parsed.format !== 'PasKey Encrypted Vault') throw new Error('This file is not a PasKey encrypted backup.');
-  if (parsed.encryption?.salt !== config.salt) {
+  if (parsed.encryption?.kekSalt !== config.kekSalt) {
     throw new Error('This backup was created with a different Master Password and cannot be decrypted by this vault.');
   }
   let restored = 0;

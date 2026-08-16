@@ -122,8 +122,10 @@ export default function Settings() {
       </Row>
       {msg && <p className="mt-3 text-xs" style={{ color: '#C8A96B' }}>{msg}</p>}
       <p className="mt-2 text-[11px] leading-relaxed text-[#AEB4BE]/70">
-        Exports use the PasKey Encrypted Vault format and never contain your Master Password. Plaintext CSV export is
-        intentionally not offered.
+        This is a <span className="text-white">web/prototype encrypted backup</span>: it exports the AES-256-GCM
+        ciphertext stored in your PasKey account (Base44 entities), not a device-local Android backup. The native
+        Android build will use on-device encrypted storage (Room/SQLCipher). Exports never contain your Master
+        Password; plaintext CSV export is intentionally not offered.
       </p>
 
       <h2 className="mt-8 text-xs uppercase tracking-widest text-[#AEB4BE]">Privacy & platform</h2>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -12,8 +12,14 @@ import PullToRefresh from '@/components/paskey/PullToRefresh';
 export default function Vault() {
   const [items, setItems] = useState(null);
   const [q, setQ] = useState('');
+  const searchRef = useRef(null);
 
   useEffect(() => { listAll().then(setItems); }, []);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('focus') === 'search') {
+      searchRef.current?.focus();
+    }
+  }, []);
   const refresh = async () => { setItems(await listAll()); };
 
   const counts = useMemo(() => {
@@ -43,6 +49,7 @@ export default function Vault() {
       <div className="relative">
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#AEB4BE]" aria-hidden="true" />
         <input
+          ref={searchRef}
           value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search PasKey..." aria-label="Search PasKey"
           className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-3 pl-11 pr-4 text-sm text-white placeholder:text-[#AEB4BE]/70 outline-none focus:border-[#C8A96B]"
         />
