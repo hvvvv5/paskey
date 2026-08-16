@@ -1,47 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, CheckCircle2, Copy, Fingerprint, Timer } from 'lucide-react';
-import { listAll } from '@/lib/vaultData';
-import { scorePassword } from '@/lib/password';
 import { useVault } from '@/components/paskey/VaultContext';
-import { getCategory } from '@/lib/categories';
 import NativeNotice from '@/components/paskey/NativeNotice';
 
 export default function Security() {
-  const { dec, settings } = useVault();
+  const { repo, settings } = useVault();
   const navigate = useNavigate();
   const [audit, setAudit] = useState(null);
 
-  useEffect(() => {
-    (async () => {
-      const items = await listAll();
-      const withPw = [];
-      for (const i of items) {
-        if (!i.password) continue;
-        withPw.push({ item: i, value: await dec(i.password) });
-      }
-      const weak = withPw.filter((r) => scorePassword(r.value).score < 55);
-      const seen = {};
-      withPw.forEach((r) => { if (r.value) seen[r.value] = (seen[r.value] || 0) + 1; });
-      const reused = withPw.filter((r) => r.value && seen[r.value] > 1);
-      const missing = items.filter((i) => {
-        const cat = getCategory(i._category);
-        return cat.fields.some((f) => f.name === 'password') && !i.password;
-      });
-      const old = items.filter((i) => {
-        const d = new Date(i.updated_date || i.created_date);
-        return Date.now() - d.getTime() > 365 * 24 * 3600 * 1000;
-      });
-      let score = 100;
-      score -= weak.length * 8;
-      score -= reused.length * 6;
-      score -= missing.length * 4;
-      score -= old.length * 2;
-      if (!settings.biometricUnlock) score -= 5;
-      if (settings.autoLockMinutes === -1) score -= 8;
-      setAudit({ total: items.length, weak, reused, missing, old, score: Math.max(0, Math.min(100, score)) });
-    })();
-  }, [dec, settings]);
+  useEffect(() => { repo.getSecurityStatistics(settings).then(setAudit); }, [repo, settings]);
 
   if (!audit) return <p className="p-6 text-sm text-[#AEB4BE]">Running local analysis…</p>;
 

@@ -5,7 +5,6 @@ import { useVault } from '@/components/paskey/VaultContext';
 import { buildBackup, downloadBackup, restoreBackup } from '@/lib/backup';
 import NativeNotice from '@/components/paskey/NativeNotice';
 import ChangeMasterPassword from '@/components/paskey/ChangeMasterPassword';
-import RecoveryEmailSettings from '@/components/paskey/RecoveryEmailSettings';
 import SettingsSelect from '@/components/paskey/SettingsSelect';
 import DeleteAccountDialog from '@/components/paskey/DeleteAccountDialog';
 
@@ -20,7 +19,7 @@ function Row({ children }) {
 }
 
 export default function Settings() {
-  const { settings, updateSettings, config, lock } = useVault();
+  const { settings, updateSettings, config, repo, lock } = useVault();
   const [msg, setMsg] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const fileRef = useRef(null);
@@ -28,7 +27,7 @@ export default function Settings() {
   const exportBackup = async () => {
     setMsg('');
     try {
-      downloadBackup(await buildBackup(config));
+      downloadBackup(await buildBackup(repo, config));
       setMsg('Encrypted backup created.');
     } catch {
       setMsg('Unable to create encrypted backup.');
@@ -40,7 +39,7 @@ export default function Settings() {
     if (!file) return;
     setMsg('');
     try {
-      const n = await restoreBackup(file, config);
+      const n = await restoreBackup(file, repo, config);
       setMsg(`Restored ${n} encrypted items.`);
     } catch (err) {
       setMsg(err.message || 'Unable to restore this backup.');
@@ -55,7 +54,6 @@ export default function Settings() {
 
       <h2 className="mt-6 text-xs uppercase tracking-widest text-[#AEB4BE]">Security</h2>
       <ChangeMasterPassword />
-      <RecoveryEmailSettings />
       <Row>
         <span className="flex-1 text-white">Biometric unlock</span>
         <input
@@ -123,9 +121,9 @@ export default function Settings() {
       {msg && <p className="mt-3 text-xs" style={{ color: '#C8A96B' }}>{msg}</p>}
       <p className="mt-2 text-[11px] leading-relaxed text-[#AEB4BE]/70">
         This is a <span className="text-white">web/prototype encrypted backup</span>: it exports the AES-256-GCM
-        ciphertext stored in your PasKey account (Base44 entities), not a device-local Android backup. The native
-        Android build will use on-device encrypted storage (Room/SQLCipher). Exports never contain your Master
-        Password; plaintext CSV export is intentionally not offered.
+        ciphertext stored locally in this browser, not a device-local Android backup. The native Android build will use
+        on-device encrypted storage (Room/SQLCipher). Exports never contain your Master Password; plaintext CSV export
+        is intentionally not offered.
       </p>
 
       <h2 className="mt-8 text-xs uppercase tracking-widest text-[#AEB4BE]">Privacy & platform</h2>
@@ -142,15 +140,15 @@ export default function Settings() {
 
       <h2 className="mt-10 text-xs uppercase tracking-widest text-red-400/80">Danger zone</h2>
       <p className="mt-2 text-xs leading-relaxed text-[#AEB4BE]">
-        Deleting your account is permanent. It removes your Base44 user record; your local encrypted vault remains on
-        this device until you clear app data.
+        Erasing your vault is permanent. It removes the Master Password configuration, settings and every encrypted
+        item from this device. There is no cloud copy and no recovery.
       </p>
       <button
         type="button"
         onClick={() => setDeleteOpen(true)}
         className="mt-3 inline-flex items-center gap-2 rounded-xl border border-red-500/40 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 active:scale-[0.98]"
       >
-        <Trash2 className="h-4 w-4" /> Delete account
+        <Trash2 className="h-4 w-4" /> Erase local vault
       </button>
       <DeleteAccountDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} />
 

@@ -2,14 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Wand2 } from 'lucide-react';
 import { getCategory } from '@/lib/categories';
-import { getItem, saveItem } from '@/lib/vaultData';
 import { useVault } from '@/components/paskey/VaultContext';
 import { generatePassword } from '@/lib/password';
 
 export default function ItemForm() {
   const { cat: catKey, id } = useParams();
   const cat = getCategory(catKey);
-  const { enc, dec } = useVault();
+  const { repo, dec } = useVault();
   const navigate = useNavigate();
   const [values, setValues] = useState({});
   const [busy, setBusy] = useState(false);
@@ -18,7 +17,8 @@ export default function ItemForm() {
   useEffect(() => {
     if (!id || !cat) return;
     (async () => {
-      const row = await getItem(cat.key, id);
+      const row = await repo.getItem(cat.key, id);
+      if (!row) return;
       const next = { favorite: !!row.favorite };
       for (const f of cat.fields) {
         if (f.name === 'tags') next.tags = (row.tags || []).join(', ');
@@ -26,7 +26,7 @@ export default function ItemForm() {
       }
       setValues(next);
     })();
-  }, [id, cat, dec]);
+  }, [id, cat, repo, dec]);
 
   if (!cat) return <p className="p-6 text-sm text-[#AEB4BE]">Unknown category.</p>;
 
@@ -37,7 +37,7 @@ export default function ItemForm() {
     setBusy(true);
     setError('');
     try {
-      const saved = await saveItem(cat.key, id, values, enc);
+      const saved = id ? await repo.updateItem(cat.key, id, values) : await repo.createItem(cat.key, values);
       navigate(`/item/${cat.key}/${id || saved.id}`, { replace: true });
     } catch {
       setError('Unable to save this item. Please try again.');

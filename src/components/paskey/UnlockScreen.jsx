@@ -2,14 +2,12 @@ import React, { useState } from 'react';
 import { Fingerprint } from 'lucide-react';
 import Logo from './Logo';
 import { useVault } from './VaultContext';
-import ForgotMasterPassword from './ForgotMasterPassword';
 
 export default function UnlockScreen() {
   const { unlock, settings } = useVault();
   const [pw, setPw] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [forgot, setForgot] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -24,8 +22,8 @@ export default function UnlockScreen() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
       <Logo size={56} />
-      <h1 className="mt-6 font-heading text-2xl text-white">Unlock PasKey</h1>
-      <p className="mt-2 text-sm text-[#AEB4BE]">Enter your Master Password to decrypt your vault.</p>
+      <h1 className="mt-6 font-heading text-2xl text-white">Welcome back</h1>
+      <p className="mt-2 text-sm text-[#AEB4BE]">Unlock your PasKey vault.</p>
 
       <form onSubmit={submit} className="mt-8 space-y-4">
         <input
@@ -42,9 +40,9 @@ export default function UnlockScreen() {
         </button>
       </form>
 
-      <button type="button" onClick={() => setForgot(true)} className="mt-4 w-full text-center text-xs text-[#AEB4BE] underline decoration-dotted">
-        Forgot Master Password?
-      </button>
+      <p className="mt-4 text-center text-xs leading-relaxed text-[#AEB4BE]/70">
+        If you forget your Master Password, your vault cannot be decrypted by anyone — including PasKey.
+      </p>
 
       {settings.biometricUnlock && (
         <div className="mt-6 flex items-center gap-3 rounded-xl border border-white/10 p-4">
@@ -55,8 +53,6 @@ export default function UnlockScreen() {
           </p>
         </div>
       )}
-
-      {forgot && <ForgotMasterPassword onClose={() => setForgot(false)} />}
     </div>
   );
 }

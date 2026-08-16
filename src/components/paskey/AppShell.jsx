@@ -8,7 +8,7 @@ import Logo from './Logo';
 import Splash from './Splash';
 import UnlockScreen from './UnlockScreen';
 import MasterPasswordSetup from './MasterPasswordSetup';
-import FirstRunRecovery from './FirstRunRecovery';
+
 
 function Header() {
   const { lock } = useVault();
@@ -43,7 +43,7 @@ const pageVariants = {
 };
 
 function Gate() {
-  const { hasVault, unlocked, firstRun } = useVault();
+  const { hasVault, unlocked } = useVault();
   const location = useLocation();
   const stackRef = useRef([location.pathname]);
   const [direction, setDirection] = useState(0);
@@ -62,7 +62,6 @@ function Gate() {
 
   if (!hasVault) return <MasterPasswordSetup />;
   if (!unlocked) return <UnlockScreen />;
-  if (firstRun) return <FirstRunRecovery />;
 
   const showChrome = MAIN_TABS.has(location.pathname);
 

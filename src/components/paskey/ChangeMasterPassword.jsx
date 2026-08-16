@@ -17,7 +17,7 @@ export default function ChangeMasterPassword() {
     const ok = await changeMaster(current, next);
     setCurrent(''); setNext('');
     if (!ok) return setMsg('Incorrect Master Password. Unable to unlock PasKey.');
-    setMsg('Master Password updated. Existing items keep their previous encryption key until re-saved.');
+    setMsg('Master Password updated. Your vault key was re-wrapped — all items remain accessible.');
     setOpen(false);
   };
 

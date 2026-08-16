@@ -2,15 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { getCategory } from '@/lib/categories';
-import { listCategory } from '@/lib/vaultData';
+import { useVault } from '@/components/paskey/VaultContext';
 import ItemRow from '@/components/paskey/ItemRow';
 
 export default function Category() {
   const { key } = useParams();
   const cat = getCategory(key);
+  const { repo } = useVault();
   const [items, setItems] = useState(null);
 
-  useEffect(() => { if (cat) listCategory(cat.key).then(setItems); }, [cat]);
+  useEffect(() => { if (cat) repo.listCategory(cat.key).then(setItems); }, [cat, repo]);
 
   if (!cat) return <p className="p-6 text-sm text-[#AEB4BE]">Unknown category.</p>;
 

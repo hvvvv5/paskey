@@ -11,8 +11,8 @@ export default defineConfig({
       legacySDKImports: process.env.BASE44_LEGACY_SDK_IMPORTS === 'true',
       hmrNotifier: true,
       navigationNotifier: true,
-      analyticsTracker: true,
-      visualEditAgent: true
+      analyticsTracker: false,
+      visualEditAgent: false
     }),
     react(),
   ]

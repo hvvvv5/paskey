@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Pencil, Star, Trash2 } from 'lucide-react';
 import { getCategory } from '@/lib/categories';
-import { deleteItem, getItem, toggleFavorite } from '@/lib/vaultData';
+import { useVault } from '@/components/paskey/VaultContext';
 import SensitiveField from '@/components/paskey/SensitiveField';
 import CopyButton from '@/components/paskey/CopyButton';
 import CategoryIcon from '@/components/paskey/CategoryIcon';
@@ -11,10 +11,11 @@ export default function ItemDetail() {
   const { cat: catKey, id } = useParams();
   const cat = getCategory(catKey);
   const navigate = useNavigate();
+  const { repo } = useVault();
   const [item, setItem] = useState(null);
   const [confirming, setConfirming] = useState(false);
 
-  useEffect(() => { if (cat) getItem(cat.key, id).then(setItem); }, [cat, id]);
+  useEffect(() => { if (cat) repo.getItem(cat.key, id).then(setItem); }, [cat, id, repo]);
 
   if (!cat) return <p className="p-6 text-sm text-[#AEB4BE]">Unknown category.</p>;
   if (!item) return <p className="p-6 text-sm text-[#AEB4BE]">Decrypting…</p>;
@@ -23,7 +24,7 @@ export default function ItemDetail() {
   const url = item.website && (item.website.startsWith('http') ? item.website : `https://${item.website}`);
 
   const remove = async () => {
-    await deleteItem(cat.key, id);
+    await repo.deleteItem(cat.key, id);
     navigate(`/c/${cat.key}`, { replace: true });
   };
 
@@ -37,11 +38,7 @@ export default function ItemDetail() {
             onClick={async () => {
               const prev = item.favorite;
               setItem({ ...item, favorite: !prev });
-              try {
-                await toggleFavorite(cat.key, id, !prev);
-              } catch {
-                setItem((cur) => ({ ...cur, favorite: prev }));
-              }
+              try { await repo.toggleFavorite(cat.key, id, !prev); } catch { setItem((cur) => ({ ...cur, favorite: prev })); }
             }}
             className="rounded-lg p-2 text-[#AEB4BE] hover:text-white"
           >
@@ -88,7 +85,7 @@ export default function ItemDetail() {
       {confirming && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 px-6">
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#070707] p-6">
-            <h2 className="font-heading text-lg text-white">Delete “{title}”?</h2>
+            <h2 className="font-heading text-lg text-white">Delete "{title}"?</h2>
             <p className="mt-2 text-sm text-[#AEB4BE]">This removes the item from your encrypted vault. It cannot be undone.</p>
             <div className="mt-5 flex gap-3">
               <button type="button" onClick={() => setConfirming(false)} className="flex-1 rounded-xl border border-white/10 py-3 text-sm text-[#AEB4BE]">Cancel</button>
