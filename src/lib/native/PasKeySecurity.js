@@ -56,3 +56,12 @@ export async function writeNativeVaultEntity(entity, rows) {
 export async function clearNativeVaultStorage() {
   try { await PasKeySecurity.clearVaultStorage(); } catch { /* browser/no native bridge */ }
 }
+
+export async function setScreenshotProtection(enabled) {
+  try {
+    const result = await PasKeySecurity.setScreenshotProtection({ enabled: Boolean(enabled) });
+    return Boolean(result.enabled);
+  } catch {
+    return false;
+  }
+}
