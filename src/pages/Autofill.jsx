@@ -280,7 +280,7 @@ export default function Autofill() {
 
       <section className="mt-6 rounded-2xl border border-[#C8A96B]/30 bg-gradient-to-br from-[#C8A96B]/10 to-white/[0.03] p-4">
         <div className="flex gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#070707]" aria-hidden="true"><Logo size={38} /></div>
+          <div className="pk-logo-badge flex h-12 w-12 shrink-0 items-center justify-center rounded-full" aria-hidden="true"><Logo size={34} /></div>
           <div className="min-w-0 flex-1">
             <p className="font-medium text-white">{t('Autofill save is ready')}</p>
             <p className="mt-1 text-sm text-[#AEB4BE]">{t("After a supported login, approve Android's save prompt, then import it here.")}</p>
