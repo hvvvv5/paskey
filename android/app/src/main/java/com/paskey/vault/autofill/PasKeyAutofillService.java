@@ -148,6 +148,7 @@ public class PasKeyAutofillService extends AutofillService {
             }
 
             if (itemIsCard) continue;
+            if (!newPasswordIds.isEmpty()) continue;
             int score = PasKeyAutofillMatcher.score(
                     item.optString("website", ""),
                     item.optString("applicationIdentifier", ""),
