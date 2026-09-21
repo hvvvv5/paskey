@@ -8,10 +8,12 @@ import Logo from './Logo';
 import Splash from './Splash';
 import UnlockScreen from './UnlockScreen';
 import MasterPasswordSetup from './MasterPasswordSetup';
+import { I18nProvider, useI18n } from '@/lib/i18n';
 
 
 function Header() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   return (
     <header
       className="sticky top-0 z-20 flex items-center gap-3 border-b border-white/10 bg-[#070707]/95 px-5 pb-4 backdrop-blur"
@@ -20,7 +22,7 @@ function Header() {
       <Logo size={28} />
       <span className="pk-no-select font-heading text-sm tracking-[0.34em] text-white">PASKEY</span>
       <div className="ml-auto flex items-center gap-1">
-        <button type="button" aria-label="Search vault" onClick={() => navigate('/?focus=search')} className="rounded-lg p-2 text-[#AEB4BE] hover:text-white active:scale-95">
+        <button type="button" aria-label={t("Search vault")} onClick={() => navigate('/?focus=search')} className="rounded-lg p-2 text-[#AEB4BE] hover:text-white active:scale-95">
           <Search className="h-5 w-5" strokeWidth={1.6} />
         </button>
       </div>
@@ -89,9 +91,11 @@ export default function AppShell() {
   const [splash, setSplash] = useState(true);
   return (
     <VaultProvider>
+      <I18nProvider>
       <div className="min-h-screen bg-[#070707] text-white">
         {splash ? <Splash onDone={() => setSplash(false)} /> : <Gate />}
       </div>
+      </I18nProvider>
     </VaultProvider>
   );
 }
