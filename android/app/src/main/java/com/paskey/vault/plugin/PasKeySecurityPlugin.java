@@ -508,6 +508,31 @@ public class PasKeySecurityPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openChromeAutofillSettings(PluginCall call) {
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+
+        activity.runOnUiThread(() -> {
+            try {
+                Intent intent = new Intent(Intent.ACTION_APPLICATION_PREFERENCES);
+                intent.addCategory(Intent.CATEGORY_DEFAULT);
+                intent.addCategory(Intent.CATEGORY_APP_BROWSER);
+                intent.addCategory(Intent.CATEGORY_PREFERENCE);
+                intent.setPackage("com.android.chrome");
+                activity.startActivity(intent);
+                JSObject result = new JSObject();
+                result.put("opened", true);
+                call.resolve(result);
+            } catch (Exception exception) {
+                call.reject("Unable to open Chrome Autofill settings", exception);
+            }
+        });
+    }
+
+    @PluginMethod
     public void syncAutofillVault(PluginCall call) {
         String json = call.getString("json");
         if (json == null) {
