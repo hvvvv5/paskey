@@ -11,6 +11,9 @@ const config = {
   appId: 'com.paskey.vault',
   appName: 'PasKey',
   webDir: 'dist',
+  // Vault payloads cross the Capacitor bridge. Disable bridge logging so
+  // credentials and decrypted Room rows are never echoed to Logcat.
+  loggingBehavior: 'none',
 };
 
 export default config;

@@ -7,6 +7,7 @@ import {
   unlockBiometricVaultKey,
   clearBiometricVaultKey,
   hasBiometricVaultKey,
+  setScreenshotProtection,
 } from '@/lib/native/PasKeySecurity';
 import {
   deriveKey,
@@ -126,6 +127,11 @@ export function VaultProvider({ children }) {
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    if (!isAndroid()) return;
+    setScreenshotProtection(settings.screenshotProtection !== false).catch(() => {});
+  }, [settings.screenshotProtection]);
 
   useEffect(() => {
     const selected = settings.theme || 'dark';

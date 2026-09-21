@@ -2,6 +2,26 @@ import { registerPlugin } from '@capacitor/core';
 
 export const PasKeySecurity = registerPlugin('PasKeySecurity');
 
+export async function getAutofillStatus() {
+  try {
+    const result = await PasKeySecurity.getAutofillStatus();
+    return {
+      supported: Boolean(result.supported),
+      enabled: Boolean(result.enabled),
+    };
+  } catch {
+    return { supported: false, enabled: false };
+  }
+}
+
+export async function requestEnableAutofill() {
+  return PasKeySecurity.requestEnableAutofill();
+}
+
+export async function openChromeAutofillSettings() {
+  return PasKeySecurity.openChromeAutofillSettings();
+}
+
 export async function getPendingAutofillSaves() {
   const result = await PasKeySecurity.getPendingAutofillSaves();
   return JSON.parse(result.json || '[]');
@@ -55,4 +75,13 @@ export async function writeNativeVaultEntity(entity, rows) {
 
 export async function clearNativeVaultStorage() {
   try { await PasKeySecurity.clearVaultStorage(); } catch { /* browser/no native bridge */ }
+}
+
+export async function setScreenshotProtection(enabled) {
+  try {
+    const result = await PasKeySecurity.setScreenshotProtection({ enabled: Boolean(enabled) });
+    return Boolean(result.enabled);
+  } catch {
+    return false;
+  }
 }

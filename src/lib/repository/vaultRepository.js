@@ -75,18 +75,19 @@ export function createVaultRepository({ enc, dec }) {
           await writeNativeVaultEntity(entity, rows);
         }
         cache.set(entity, rows);
-      } catch {
-        // Preserve local data if the native database is unavailable or its
-        // Keystore key cannot decrypt it. The vault remains usable in legacy
-        // mode and the next unlock retries migration.
+      } catch (error) {
+        // Android vault storage is authoritative. Falling back to browser
+        // localStorage after a native/Keystore failure could silently weaken
+        // at-rest protection, so fail closed while preserving legacy rows.
         migrationFailed = true;
         cache.set(entity, localRows);
+        throw new Error(`Secure Android vault storage is unavailable for ${entity}.`, { cause: error });
       }
     }
     if (!migrationFailed && nativeStorage) {
       for (const entity of entities) localStorage.removeItem(KEY(entity));
     }
-    if (migrationFailed) nativeStorage = false;
+    if (migrationFailed) throw new Error('Secure Android vault storage migration failed.');
   })();
 
   const readRows = async (entity) => {
@@ -195,6 +196,52 @@ export function createVaultRepository({ enc, dec }) {
     rows[index] = { ...rows[index], lastUsedAt: now(), updated_date: now() };
     await writeRows(cat.entity, rows);
   };
+
+  const upsertAutofillLogin = (values) => serializeMutation(async () => {
+    const cat = getCategory('passwords');
+    if (!cat) throw new Error('Passwords category unavailable');
+    const rows = await readRows(cat.entity);
+    const website = String(values?.website || '').trim().toLowerCase();
+    const applicationIdentifier = String(values?.applicationIdentifier || '').trim();
+    const identity = String(values?.email || values?.phone || values?.username || '').trim().toLowerCase();
+    const pendingId = pendingIdOf(values);
+
+    const existingIndex = rows.findIndex((row) => {
+      if (pendingId && pendingIdOf(row) === pendingId) return true;
+      const rowIdentity = String(row.email || row.phone || row.username || '').trim().toLowerCase();
+      const rowWebsites = String(row.website || '').split(/[,;\n]/).map((v) => v.trim().toLowerCase()).filter(Boolean);
+      const rowPackages = String(row.applicationIdentifier || '').split(/[,;\n]/).map((v) => v.trim()).filter(Boolean);
+      const sameTarget = website ? rowWebsites.includes(website) : Boolean(applicationIdentifier && rowPackages.includes(applicationIdentifier));
+      return Boolean(identity && rowIdentity === identity && sameTarget);
+    });
+
+    if (existingIndex >= 0) {
+      const previous = rows[existingIndex];
+      const next = { ...previous, updated_date: now() };
+      for (const field of ['title', 'website', 'applicationIdentifier', 'username', 'email', 'phone']) {
+        const value = values?.[field];
+        if (value !== undefined && value !== null && String(value).trim()) next[field] = value;
+      }
+      if (values?.password) next.password = await enc(values.password);
+      if (values?.avatar) next.avatar = await enc(values.avatar);
+      if (pendingId) next._paskeyPendingId = pendingId;
+      rows[existingIndex] = next;
+      await writeRows(cat.entity, rows);
+      return { id: next.id, existing: true, updated: true };
+    }
+
+    const payload = await buildPayload(cat, values, enc);
+    const row = {
+      id: uid(),
+      created_date: now(),
+      updated_date: now(),
+      ...payload,
+      ...(pendingId ? { _paskeyPendingId: pendingId } : {}),
+    };
+    rows.push(row);
+    await writeRows(cat.entity, rows);
+    return { id: row.id, existing: false, updated: false };
+  });
 
   const dedupePendingLogins = async () => {
     const entities = [...new Set(CATEGORIES.map((category) => category.entity))];
@@ -317,7 +364,7 @@ export function createVaultRepository({ enc, dec }) {
 
   return {
     listCategory, listItems, getItem, createItem, updateItem, deleteItem,
-    toggleFavorite, markUsed, dedupePendingLogins, searchItems,
+    toggleFavorite, markUsed, upsertAutofillLogin, dedupePendingLogins, searchItems,
     getSecurityStatistics, exportRaw, importRaw, eraseAll,
   };
 }

@@ -3,12 +3,18 @@ package com.paskey.vault.plugin;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
+import android.view.autofill.AutofillManager;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.UserNotAuthenticatedException;
 import android.util.Base64;
+import android.view.WindowManager;
 
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
@@ -390,6 +396,27 @@ public class PasKeySecurityPlugin extends Plugin {
         }
     }
 
+
+    @PluginMethod
+    public void setScreenshotProtection(PluginCall call) {
+        Boolean enabled = call.getBoolean("enabled", true);
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            if (Boolean.TRUE.equals(enabled)) {
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            } else {
+                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            }
+            JSObject result = new JSObject();
+            result.put("enabled", Boolean.TRUE.equals(enabled));
+            call.resolve(result);
+        });
+    }
+
     @PluginMethod
     public void copySecure(PluginCall call) {
         String value = call.getString("value");
@@ -418,6 +445,91 @@ public class PasKeySecurityPlugin extends Plugin {
             }, seconds * 1000L);
         }
         call.resolve();
+    }
+
+    @PluginMethod
+    public void getAutofillStatus(PluginCall call) {
+        JSObject result = new JSObject();
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            result.put("supported", false);
+            result.put("enabled", false);
+            call.resolve(result);
+            return;
+        }
+
+        AutofillManager manager = getContext().getSystemService(AutofillManager.class);
+        boolean supported = manager != null && manager.isAutofillSupported();
+        boolean enabled = supported && manager.hasEnabledAutofillServices();
+        result.put("supported", supported);
+        result.put("enabled", enabled);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void requestEnableAutofill(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            call.reject("Android Autofill requires Android 8.0 or newer");
+            return;
+        }
+
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+
+        AutofillManager manager = activity.getSystemService(AutofillManager.class);
+        if (manager == null || !manager.isAutofillSupported()) {
+            call.reject("Android Autofill is not supported on this device");
+            return;
+        }
+
+        JSObject result = new JSObject();
+        if (manager.hasEnabledAutofillServices()) {
+            result.put("enabled", true);
+            result.put("openedSettings", false);
+            call.resolve(result);
+            return;
+        }
+
+        activity.runOnUiThread(() -> {
+            try {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE);
+                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                activity.startActivity(intent);
+                JSObject response = new JSObject();
+                response.put("enabled", false);
+                response.put("openedSettings", true);
+                call.resolve(response);
+            } catch (Exception exception) {
+                call.reject("Unable to open Android Autofill settings", exception);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void openChromeAutofillSettings(PluginCall call) {
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+
+        activity.runOnUiThread(() -> {
+            try {
+                Intent intent = new Intent(Intent.ACTION_APPLICATION_PREFERENCES);
+                intent.addCategory(Intent.CATEGORY_DEFAULT);
+                intent.addCategory(Intent.CATEGORY_APP_BROWSER);
+                intent.addCategory(Intent.CATEGORY_PREFERENCE);
+                intent.setPackage("com.android.chrome");
+                activity.startActivity(intent);
+                JSObject result = new JSObject();
+                result.put("opened", true);
+                call.resolve(result);
+            } catch (Exception exception) {
+                call.reject("Unable to open Chrome Autofill settings", exception);
+            }
+        });
     }
 
     @PluginMethod

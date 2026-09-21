@@ -61,7 +61,7 @@ public class AutofillAuthActivity extends FragmentActivity {
 
     private void showPicker() {
         try {
-            JSONArray items = PasKeyAutofillStore.load(this);
+            JSONArray items = PasKeyAutofillStore.loadAvailable(this);
             boolean cards = "cards".equals(getIntent().getStringExtra("selectorMode"));
             ArrayList<Integer> indexes = new ArrayList<>();
             ArrayList<String> labels = new ArrayList<>();
@@ -73,9 +73,12 @@ public class AutofillAuthActivity extends FragmentActivity {
                 if (itemIsCard != cards || !hasFillValue(item, cards)) continue;
 
                 String title = item.optString("displayTitle", item.optString("title", "PasKey"));
-                String subtitle = item.optString("displaySubtitle", "");
+                String subtitle = identitySubtitle(item);
                 if (subtitle.isEmpty()) {
-                    subtitle = item.optString("email", item.optString("username", item.optString("phone", item.optString("website", item.optString("applicationIdentifier", "")))));
+                    subtitle = item.optString(
+                            "website",
+                            item.optString("applicationIdentifier", "")
+                    );
                 }
                 labels.add(subtitle.isEmpty() ? title : title + "\n" + subtitle);
                 indexes.add(index);
@@ -95,6 +98,25 @@ public class AutofillAuthActivity extends FragmentActivity {
         } catch (Exception ignored) {
             cancel();
         }
+    }
+
+    private String primaryIdentity(JSONObject item) {
+        if (item == null) return "";
+        String email = item.optString("email", "").trim();
+        if (!email.isEmpty()) return email;
+        String phone = item.optString("phone", "").trim();
+        if (!phone.isEmpty()) return phone;
+        return item.optString("username", "").trim();
+    }
+
+    private String identitySubtitle(JSONObject item) {
+        if (item == null) return "";
+        String email = item.optString("email", "").trim();
+        if (!email.isEmpty()) return "Email · " + email;
+        String phone = item.optString("phone", "").trim();
+        if (!phone.isEmpty()) return "Phone · " + phone;
+        String username = item.optString("username", "").trim();
+        return username.isEmpty() ? "" : "Username · " + username;
     }
 
     private boolean hasFillValue(JSONObject item, boolean cards) {
@@ -120,7 +142,7 @@ public class AutofillAuthActivity extends FragmentActivity {
             AutofillId cardExpiryId = source.getParcelableExtra("cardExpiryId");
             AutofillId cardCvvId = source.getParcelableExtra("cardCvvId");
 
-            JSONArray items = PasKeyAutofillStore.load(this);
+            JSONArray items = PasKeyAutofillStore.loadAvailable(this);
             JSONObject item = itemIndex >= 0 && itemIndex < items.length() ? items.optJSONObject(itemIndex) : null;
             if (item == null) {
                 cancel();
@@ -128,7 +150,7 @@ public class AutofillAuthActivity extends FragmentActivity {
             }
 
             String title = item.optString("displayTitle", item.optString("title", "PasKey"));
-            String subtitle = item.optString("displaySubtitle", item.optString("email", item.optString("username", "")));
+            String subtitle = identitySubtitle(item);
             RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_2);
             presentation.setTextViewText(android.R.id.text1, title.isEmpty() ? "PasKey" : title);
             presentation.setTextViewText(android.R.id.text2, subtitle);
@@ -141,9 +163,31 @@ public class AutofillAuthActivity extends FragmentActivity {
                 hasValue |= setValue(dataset, cardExpiryId, item.optString("expiry", ""), presentation);
                 hasValue |= setValue(dataset, cardCvvId, item.optString("cvv", ""), presentation);
             } else {
-                hasValue |= setValue(dataset, emailId, item.optString("email", ""), presentation);
-                hasValue |= setValue(dataset, usernameId, item.optString("username", ""), presentation);
-                hasValue |= setValue(dataset, phoneId, item.optString("phone", ""), presentation);
+                String email = item.optString("email", "").trim();
+                String username = item.optString("username", "").trim();
+                String phone = item.optString("phone", "").trim();
+                String primaryIdentity = primaryIdentity(item);
+
+                int identityFieldCount = 0;
+                if (emailId != null) identityFieldCount++;
+                if (usernameId != null) identityFieldCount++;
+                if (phoneId != null) identityFieldCount++;
+
+                if (identityFieldCount <= 1) {
+                    // Many apps expose one generic "email / username / phone"
+                    // field. Fill the saved primary identity regardless of the
+                    // framework's exact classification for that single field.
+                    hasValue |= setValue(dataset, emailId, primaryIdentity, presentation);
+                    hasValue |= setValue(dataset, usernameId, primaryIdentity, presentation);
+                    hasValue |= setValue(dataset, phoneId, primaryIdentity, presentation);
+                } else {
+                    // With separate identity fields, keep each value in its
+                    // matching field to avoid cross-filling email/phone/name.
+                    hasValue |= setValue(dataset, emailId, email, presentation);
+                    hasValue |= setValue(dataset, usernameId, username, presentation);
+                    hasValue |= setValue(dataset, phoneId, phone, presentation);
+                }
+
                 hasValue |= setValue(dataset, passwordId, item.optString("password", ""), presentation);
             }
 
@@ -154,6 +198,10 @@ public class AutofillAuthActivity extends FragmentActivity {
 
             Intent result = new Intent();
             result.putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset.build());
+            Bundle clientState = source.getBundleExtra(AutofillManager.EXTRA_CLIENT_STATE);
+            if (clientState != null) {
+                result.putExtra(AutofillManager.EXTRA_CLIENT_STATE, clientState);
+            }
             setResult(Activity.RESULT_OK, result);
             finish();
         } catch (Exception ignored) {

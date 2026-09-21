@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useVault } from './VaultContext';
 import { scorePassword } from '@/lib/password';
+import { useI18n } from '@/lib/i18n';
 
 export default function ChangeMasterPassword() {
   const { changeMaster } = useVault();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -13,34 +15,34 @@ export default function ChangeMasterPassword() {
   const submit = async (e) => {
     e.preventDefault();
     setMsg('');
-    if (next.length < 12) return setMsg('New Master Password must be at least 12 characters.');
+    if (next.length < 12) return setMsg(t('New Master Password must be at least 12 characters.'));
     const ok = await changeMaster(current, next);
     setCurrent(''); setNext('');
-    if (!ok) return setMsg('Incorrect Master Password. Unable to unlock PasKey.');
-    setMsg('Master Password updated. Your vault key was re-wrapped — all items remain accessible.');
+    if (!ok) return setMsg(t('Incorrect Master Password. Unable to unlock PasKey.'));
+    setMsg(t('Master Password updated. Your vault key was re-wrapped — all items remain accessible.'));
     setOpen(false);
   };
 
   return (
     <div className="border-b border-white/5 py-4">
       <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center text-sm">
-        <span className="flex-1 text-left text-white">Master Password</span>
-        <span className="text-xs text-[#AEB4BE]">{open ? 'Cancel' : 'Change'}</span>
+        <span className="flex-1 text-left text-white">{t('Master Password')}</span>
+        <span className="text-xs text-[#AEB4BE]">{open ? t('Cancel') : t('Change')}</span>
       </button>
       {open && (
         <form onSubmit={submit} className="mt-4 space-y-3">
           <input
-            type="password" placeholder="Current Master Password" aria-label="Current Master Password"
+            type="password" placeholder={t('Current Master Password')} aria-label={t('Current Master Password')}
             value={current} onChange={(e) => setCurrent(e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-[#C8A96B]"
           />
           <input
-            type="password" placeholder="New Master Password" aria-label="New Master Password"
+            type="password" placeholder={t('New Master Password')} aria-label={t('New Master Password')}
             value={next} onChange={(e) => setNext(e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-[#C8A96B]"
           />
-          <p className="text-xs text-[#AEB4BE]">Strength: <span className="text-white">{label}</span></p>
-          <button type="submit" className="w-full rounded-xl bg-white py-3 text-sm font-medium text-black active:scale-[0.98]">Update Master Password</button>
+          <p className="text-xs text-[#AEB4BE]">{t('Strength:')} <span className="text-white">{t(label)}</span></p>
+          <button type="submit" className="w-full rounded-xl bg-white py-3 text-sm font-medium text-black active:scale-[0.98]">{t('Update Master Password')}</button>
         </form>
       )}
       {msg && <p className="mt-3 text-xs text-[#AEB4BE]">{msg}</p>}
