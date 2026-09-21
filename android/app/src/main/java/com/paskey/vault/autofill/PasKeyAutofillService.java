@@ -231,16 +231,39 @@ public class PasKeyAutofillService extends AutofillService {
     private RemoteViews presentationFor(JSONObject item) {
         String title = item.optString("displayTitle", item.optString("title", "PasKey"));
         if (title.trim().isEmpty()) title = "PasKey";
-        String subtitle = item.optString("displaySubtitle", "");
-        if (subtitle.trim().isEmpty()) {
-            subtitle = item.optString("email", item.optString("username", ""));
-        }
+
+        String subtitle = identitySubtitle(item);
         if (subtitle.trim().isEmpty()) {
             subtitle = item.optString("website", item.optString("applicationIdentifier", "Saved login"));
         }
+
         RemoteViews presentation = presentationFor(title, subtitle);
         applyPresentationImage(presentation, item.optString("image", ""));
         return presentation;
+    }
+
+    private String primaryIdentity(JSONObject item) {
+        if (item == null) return "";
+        String email = item.optString("email", "").trim();
+        if (!email.isEmpty()) return email;
+        String phone = item.optString("phone", "").trim();
+        if (!phone.isEmpty()) return phone;
+        return item.optString("username", "").trim();
+    }
+
+    private String identityType(JSONObject item) {
+        if (item == null) return "";
+        if (!item.optString("email", "").trim().isEmpty()) return "Email";
+        if (!item.optString("phone", "").trim().isEmpty()) return "Phone";
+        if (!item.optString("username", "").trim().isEmpty()) return "Username";
+        return "";
+    }
+
+    private String identitySubtitle(JSONObject item) {
+        String identity = primaryIdentity(item);
+        String type = identityType(item);
+        if (identity.isEmpty()) return "";
+        return type.isEmpty() ? identity : type + " · " + identity;
     }
 
     private RemoteViews presentationFor(String title, String subtitle) {
@@ -289,9 +312,16 @@ public class PasKeyAutofillService extends AutofillService {
             hasField |= associate(dataset, cardCvvId, presentation);
         } else {
             if (!isCompleteLoginRecord(item)) return null;
-            if (!item.optString("email", "").isEmpty()) hasField |= associate(dataset, emailId, presentation);
-            if (!item.optString("username", "").isEmpty()) hasField |= associate(dataset, usernameId, presentation);
-            if (!item.optString("phone", "").isEmpty()) hasField |= associate(dataset, phoneId, presentation);
+
+            String identity = primaryIdentity(item);
+            if (!identity.isEmpty()) {
+                hasField |= associateFilterableIdentity(dataset, emailId, identity, presentation);
+                hasField |= associateFilterableIdentity(dataset, usernameId, identity, presentation);
+                hasField |= associateFilterableIdentity(dataset, phoneId, identity, presentation);
+            }
+
+            // The password is never included in the locked dataset. It is
+            // returned only after AutofillAuthActivity authenticates the user.
             hasField |= associate(dataset, passwordId, presentation);
         }
         return hasField ? dataset.build() : null;
@@ -424,6 +454,20 @@ public class PasKeyAutofillService extends AutofillService {
         return true;
     }
 
+    private boolean associateFilterableIdentity(
+            Dataset.Builder dataset,
+            AutofillId id,
+            String identity,
+            RemoteViews presentation) {
+        if (id == null || identity == null || identity.trim().isEmpty()) return false;
+
+        // Android filters datasets against this non-secret identity value as
+        // the user types. The dataset remains authentication-gated, and no
+        // password is placed in the response before authentication succeeds.
+        dataset.setValue(id, AutofillValue.forText(identity), presentation);
+        return true;
+    }
+
 
     private PendingIntent attributionPendingIntent(int requestCode) {
         Intent intent = new Intent(this, MainActivity.class);
@@ -453,20 +497,11 @@ public class PasKeyAutofillService extends AutofillService {
             String title = item.optString("displayTitle", item.optString("title", "PasKey"));
             if (title.trim().isEmpty()) title = "PasKey";
 
-            String subtitle = item.optString("displaySubtitle", "");
+            String subtitle = service.identitySubtitle(item);
             if (subtitle.trim().isEmpty()) {
                 subtitle = item.optString(
-                        "email",
-                        item.optString(
-                                "username",
-                                item.optString(
-                                        "phone",
-                                        item.optString(
-                                                "website",
-                                                item.optString("applicationIdentifier", "Saved login")
-                                        )
-                                )
-                        )
+                        "website",
+                        item.optString("applicationIdentifier", "Saved login")
                 );
             }
 
