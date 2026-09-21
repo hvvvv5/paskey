@@ -435,3 +435,69 @@ html[data-pk-theme='pro'] {
 .pk-logo-badge > svg {
   display: block;
 }
+
+
+/* Exact system-safe areas. Android can override these variables with measured
+   WindowInsets; the CSS env() values remain the browser/iOS fallback. */
+:root {
+  --pk-safe-top: env(safe-area-inset-top, 0px);
+  --pk-safe-right: env(safe-area-inset-right, 0px);
+  --pk-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --pk-safe-left: env(safe-area-inset-left, 0px);
+}
+
+.pk-safe-header {
+  padding-top: max(1rem, var(--pk-safe-top)) !important;
+  padding-right: max(1.25rem, var(--pk-safe-right)) !important;
+  padding-left: max(1.25rem, var(--pk-safe-left)) !important;
+}
+
+.pk-safe-bottom-nav {
+  padding-right: var(--pk-safe-right);
+  padding-bottom: var(--pk-safe-bottom);
+  padding-left: var(--pk-safe-left);
+}
+
+.pk-safe-drawer {
+  max-height: calc(100dvh - var(--pk-safe-top));
+  padding-right: var(--pk-safe-right);
+  padding-bottom: var(--pk-safe-bottom);
+  padding-left: var(--pk-safe-left);
+}
+
+.pk-safe-dialog {
+  top: calc(
+    var(--pk-safe-top) +
+    (100dvh - var(--pk-safe-top) - var(--pk-safe-bottom)) / 2
+  ) !important;
+  width: min(
+    100% - var(--pk-safe-left) - var(--pk-safe-right) - 2rem,
+    32rem
+  ) !important;
+  max-height: calc(
+    100dvh - var(--pk-safe-top) - var(--pk-safe-bottom) - 2rem
+  );
+  overflow-y: auto;
+}
+
+.pk-safe-screen {
+  box-sizing: border-box;
+  padding-top: var(--pk-safe-top);
+  padding-right: var(--pk-safe-right);
+  padding-bottom: var(--pk-safe-bottom);
+  padding-left: var(--pk-safe-left);
+  background: #000000 !important;
+}
+
+.pk-splash-logo {
+  overflow: hidden;
+  border: 1px solid rgb(200 169 107 / 55%);
+  background: #070707 !important;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 6%) inset,
+    0 12px 36px rgb(0 0 0 / 38%);
+}
+
+.pk-splash-logo > svg {
+  display: block;
+}
