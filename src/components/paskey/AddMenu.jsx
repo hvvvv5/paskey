@@ -5,6 +5,7 @@ import { Plus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CATEGORIES } from '@/lib/categories';
 import CategoryIcon from './CategoryIcon';
+import { useI18n } from '@/lib/i18n';
 
 const ARC_POSITIONS = [
   { x: 220, y: 264, scale: 0.84 },
@@ -18,6 +19,7 @@ const mod = (value, length) => ((value % length) + length) % length;
 
 export default function AddMenu() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [wheelIndex, setWheelIndex] = useState(0);
   const dragRef = useRef(null);
@@ -104,7 +106,7 @@ export default function AddMenu() {
         >
           <motion.div
             role="group"
-            aria-label="Add item categories"
+            aria-label={t('Add item categories')}
             initial={{ opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.94 }}
@@ -121,7 +123,7 @@ export default function AddMenu() {
                 <motion.button
                   key={category.key}
                   type="button"
-                  aria-label={category.label}
+                  aria-label={t(category.label)}
                   onClick={(event) => chooseCategory(event, category)}
                   initial={{ opacity: 0, scale: 0.55 }}
                   animate={{
@@ -143,7 +145,7 @@ export default function AddMenu() {
 
           <motion.button
             type="button"
-            aria-label="Close add menu"
+            aria-label={t('Close add menu')}
             onClick={(event) => {
               event.stopPropagation();
               close();
@@ -155,7 +157,7 @@ export default function AddMenu() {
             className="pk-add-close pk-add-close-safe fixed z-[70] inline-flex h-11 items-center justify-center gap-2 rounded-full border border-white/15 bg-[#070707]/95 px-5 text-sm font-medium text-white shadow-xl shadow-black/60 backdrop-blur-md active:scale-95"
           >
             <X className="h-5 w-5" />
-            <span>Close</span>
+            <span>{t('Close')}</span>
           </motion.button>
         </motion.div>
       ) : null}
@@ -168,12 +170,12 @@ export default function AddMenu() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        aria-label="Add item"
+        aria-label={t('Add item')}
         aria-expanded={open}
         className="relative z-30 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 text-sm font-medium text-[#070707] shadow-lg shadow-black/40 transition-transform active:scale-95"
       >
         <Plus className="h-5 w-5" />
-        <span>Add</span>
+        <span>{t('Add')}</span>
       </button>
       {overlay}
     </div>
