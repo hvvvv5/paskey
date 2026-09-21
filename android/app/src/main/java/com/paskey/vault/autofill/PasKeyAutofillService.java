@@ -128,7 +128,7 @@ public class PasKeyAutofillService extends AutofillService {
             );
             if (score <= 0) continue;
 
-            Dataset dataset = buildAuthenticatedDataset(item, index, selectorMode);
+            Dataset dataset = buildAuthenticatedDataset(item, index, selectorMode, request, datasetCount);
             if (dataset != null) {
                 response.addDataset(dataset);
                 datasetCount++;
