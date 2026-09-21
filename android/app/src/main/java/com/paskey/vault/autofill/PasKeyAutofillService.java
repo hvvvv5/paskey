@@ -2,6 +2,8 @@ package com.paskey.vault.autofill;
 
 import android.app.PendingIntent;
 import android.app.assist.AssistStructure;
+import android.app.slice.Slice;
+import android.graphics.drawable.Icon;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -13,6 +15,7 @@ import android.service.autofill.FillCallback;
 import android.service.autofill.FillContext;
 import android.service.autofill.FillRequest;
 import android.service.autofill.FillResponse;
+import android.service.autofill.InlinePresentation;
 import android.service.autofill.SaveCallback;
 import android.service.autofill.SaveInfo;
 import android.service.autofill.SaveRequest;
@@ -22,8 +25,15 @@ import android.util.Pair;
 import android.view.ViewStructure;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
+import android.view.inputmethod.InlineSuggestionsRequest;
+import android.widget.inline.InlinePresentationSpec;
 import android.widget.RemoteViews;
 
+import androidx.annotation.RequiresApi;
+import androidx.autofill.inline.UiVersions;
+import androidx.autofill.inline.v1.InlineSuggestionUi;
+
+import com.paskey.vault.MainActivity;
 import com.paskey.vault.R;
 
 import org.json.JSONArray;
@@ -84,7 +94,7 @@ public class PasKeyAutofillService extends AutofillService {
 
         JSONArray items;
         try {
-            items = PasKeyAutofillStore.load(this);
+            items = PasKeyAutofillStore.loadAvailable(this);
         } catch (Exception ignored) {
             callback.onSuccess(buildSaveOnlyResponse());
             return;
@@ -101,7 +111,7 @@ public class PasKeyAutofillService extends AutofillService {
             boolean itemIsCard = "cards".equals(item.optString("category", ""));
             if (cardForm) {
                 if (!itemIsCard) continue;
-                Dataset dataset = buildAuthenticatedDataset(item, index, selectorMode);
+                Dataset dataset = buildAuthenticatedDataset(item, index, selectorMode, request, datasetCount);
                 if (dataset != null) {
                     response.addDataset(dataset);
                     datasetCount++;
@@ -128,7 +138,7 @@ public class PasKeyAutofillService extends AutofillService {
         // This is not an automatic spillover: Android presents one explicit
         // PasKey option only when no saved record matches the current target.
         if (datasetCount == 0 && hasSelectableRecords(items, selectorMode)) {
-            Dataset picker = buildManualPickerDataset(selectorMode);
+            Dataset picker = buildManualPickerDataset(selectorMode, request, datasetCount);
             if (picker != null) {
                 response.addDataset(picker);
                 datasetCount++;
@@ -216,7 +226,7 @@ public class PasKeyAutofillService extends AutofillService {
     }
 
     @SuppressWarnings("deprecation")
-    private Dataset buildAuthenticatedDataset(JSONObject item, int itemIndex, String selectorMode) {
+    private Dataset buildAuthenticatedDataset(JSONObject item, int itemIndex, String selectorMode, FillRequest request, int inlineIndex) {
         RemoteViews presentation = presentationFor(item);
         Intent intent = buildAuthenticationIntent(itemIndex, selectorMode, false);
         PendingIntent pendingIntent = authenticationPendingIntent(intent, 10000 + itemIndex);
@@ -226,6 +236,10 @@ public class PasKeyAutofillService extends AutofillService {
         // setAuthentication(IntentSender, RemoteViews) overload.
         Dataset.Builder dataset = new Dataset.Builder(presentation);
         dataset.setAuthentication(pendingIntent.getIntentSender());
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            InlineSupport.applyItem(this, dataset, request, item, inlineIndex);
+        }
 
         boolean hasField = false;
         boolean card = "cards".equals(item.optString("category", ""));
@@ -245,7 +259,7 @@ public class PasKeyAutofillService extends AutofillService {
     }
 
     @SuppressWarnings("deprecation")
-    private Dataset buildManualPickerDataset(String selectorMode) {
+    private Dataset buildManualPickerDataset(String selectorMode, FillRequest request, int inlineIndex) {
         String description = "cards".equals(selectorMode)
                 ? "Choose a saved card"
                 : "Choose a saved login";
@@ -254,6 +268,18 @@ public class PasKeyAutofillService extends AutofillService {
         PendingIntent pendingIntent = authenticationPendingIntent(intent, 20000 + selectorMode.hashCode());
         Dataset.Builder dataset = new Dataset.Builder(presentation);
         dataset.setAuthentication(pendingIntent.getIntentSender());
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            InlineSupport.applyText(
+                    this,
+                    dataset,
+                    request,
+                    "Search PasKey",
+                    description,
+                    inlineIndex,
+                    42000 + Math.abs(selectorMode.hashCode() % 1000)
+            );
+        }
 
         boolean hasField = false;
         if ("cards".equals(selectorMode)) {
@@ -292,6 +318,120 @@ public class PasKeyAutofillService extends AutofillService {
         // eligible for this request without placing a secret in the response.
         dataset.setValue(id, null, presentation);
         return true;
+    }
+
+
+    private PendingIntent attributionPendingIntent(int requestCode) {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        return PendingIntent.getActivity(this, requestCode, intent, flags);
+    }
+
+    /**
+     * Android 11+ inline Autofill UI is isolated in its own class so devices
+     * below API 30 never resolve inline-only framework classes.
+     */
+    @RequiresApi(api = Build.VERSION_CODES.R)
+    private static final class InlineSupport {
+        private InlineSupport() {}
+
+        static void applyItem(
+                PasKeyAutofillService service,
+                Dataset.Builder dataset,
+                FillRequest request,
+                JSONObject item,
+                int inlineIndex) {
+
+            String title = item.optString("displayTitle", item.optString("title", "PasKey"));
+            if (title.trim().isEmpty()) title = "PasKey";
+
+            String subtitle = item.optString("displaySubtitle", "");
+            if (subtitle.trim().isEmpty()) {
+                subtitle = item.optString(
+                        "email",
+                        item.optString(
+                                "username",
+                                item.optString(
+                                        "phone",
+                                        item.optString(
+                                                "website",
+                                                item.optString("applicationIdentifier", "Saved login")
+                                        )
+                                )
+                        )
+                );
+            }
+
+            applyText(
+                    service,
+                    dataset,
+                    request,
+                    title,
+                    subtitle,
+                    inlineIndex,
+                    41000 + (inlineIndex % 1000)
+            );
+        }
+
+        static void applyText(
+                PasKeyAutofillService service,
+                Dataset.Builder dataset,
+                FillRequest request,
+                String title,
+                String subtitle,
+                int inlineIndex,
+                int attributionRequestCode) {
+            try {
+                InlineSuggestionsRequest inlineRequest = request.getInlineSuggestionsRequest();
+                if (inlineRequest == null) return;
+
+                int max = inlineRequest.getMaxSuggestionCount();
+                if (max != InlineSuggestionsRequest.SUGGESTION_COUNT_UNLIMITED
+                        && (max <= 0 || inlineIndex >= max)) {
+                    return;
+                }
+
+                List<InlinePresentationSpec> specs = inlineRequest.getInlinePresentationSpecs();
+                if (specs == null || specs.isEmpty()) return;
+
+                InlinePresentationSpec spec =
+                        specs.get(Math.min(inlineIndex, specs.size() - 1));
+
+                if (!UiVersions.getVersions(spec.getStyle())
+                        .contains(UiVersions.INLINE_UI_VERSION_1)) {
+                    return;
+                }
+
+                PendingIntent attribution =
+                        service.attributionPendingIntent(attributionRequestCode);
+
+                InlineSuggestionUi.Content.Builder content =
+                        InlineSuggestionUi.newContentBuilder(attribution)
+                                .setContentDescription(
+                                        subtitle == null || subtitle.trim().isEmpty()
+                                                ? title
+                                                : title + ", " + subtitle
+                                )
+                                .setTitle(title);
+
+                if (subtitle != null && !subtitle.trim().isEmpty()) {
+                    content.setSubtitle(subtitle);
+                }
+
+                Icon icon = Icon.createWithResource(service, R.mipmap.ic_launcher);
+                content.setStartIcon(icon);
+
+                Slice slice = content.build().getSlice();
+                dataset.setInlinePresentation(new InlinePresentation(slice, spec, false));
+            } catch (Exception ignored) {
+                // If an IME does not support the standard inline template,
+                // Android falls back to the normal Autofill menu presentation.
+            }
+        }
     }
 
     private void putFieldIds(Intent intent) {
