@@ -94,11 +94,11 @@ export default function Settings() {
 
       <Row>
         <span className="flex-1 text-white">{t('Auto lock')}</span>
-        <SettingsSelect ariaLabel="Auto lock timeout" value={settings.autoLockMinutes} onValueChange={(value) => updateSettings({ autoLockMinutes: value })} options={LOCK_OPTIONS} triggerClass="w-40 rounded-lg border-white/10 bg-[#070707]" />
+        <SettingsSelect ariaLabel={t('Auto lock')} value={settings.autoLockMinutes} onValueChange={(value) => updateSettings({ autoLockMinutes: value })} options={LOCK_OPTIONS.map(([value, label]) => [value, t(label)])} triggerClass="w-40 rounded-xl" />
       </Row>
       <Row>
         <span className="flex-1 text-white">{t('Clear clipboard after')}</span>
-        <SettingsSelect ariaLabel="Clipboard protection" value={settings.clipboardClearSeconds} onValueChange={(value) => updateSettings({ clipboardClearSeconds: value })} options={CLIPBOARD_OPTIONS} triggerClass="w-40 rounded-lg border-white/10 bg-[#070707]" />
+        <SettingsSelect ariaLabel={t('Clear clipboard after')} value={settings.clipboardClearSeconds} onValueChange={(value) => updateSettings({ clipboardClearSeconds: value })} options={CLIPBOARD_OPTIONS.map(([value, label]) => [value, t(label)])} triggerClass="w-40 rounded-xl" />
       </Row>
       <Row>
         <span className="flex-1 text-white">{t('Screenshot protection')}</span>
@@ -114,7 +114,7 @@ export default function Settings() {
       <h2 className="mt-8 text-xs uppercase tracking-widest text-[#AEB4BE]">{t("Appearance")}</h2>
       <Row>
         <label htmlFor="language" className="flex-1 text-white">{t("Language")}</label>
-        <select id="language" value={language} onChange={(event) => setLanguage(event.target.value)} className="w-40 rounded-lg border border-white/10 bg-[#070707] px-3 py-2 text-sm text-[#AEB4BE] outline-none focus:border-[#C8A96B]">
+        <select id="language" value={language} onChange={(event) => setLanguage(event.target.value)} className="pk-themed-control w-40 rounded-xl border px-3 py-2 text-sm outline-none">
           <option value="en">English</option>
           <option value="ar">العربية</option>
         </select>
@@ -125,7 +125,7 @@ export default function Settings() {
           id="theme"
           value={settings.theme || 'dark'}
           onChange={(event) => updateSettings({ theme: event.target.value })}
-          className="w-40 rounded-lg border border-white/10 bg-[#070707] px-3 py-2 text-sm text-[#AEB4BE] outline-none focus:border-[#C8A96B]"
+          className="pk-themed-control w-40 rounded-xl border px-3 py-2 text-sm outline-none"
         >
           {THEME_OPTIONS.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
         </select>
