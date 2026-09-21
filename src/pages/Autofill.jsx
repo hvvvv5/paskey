@@ -283,7 +283,7 @@ export default function Autofill() {
           <div className="pk-logo-badge flex h-12 w-12 shrink-0 items-center justify-center rounded-full" aria-hidden="true"><Logo size={34} /></div>
           <div className="min-w-0 flex-1">
             <p className="font-medium text-white">{t('Autofill save is ready')}</p>
-            <p className="mt-1 text-sm text-[#AEB4BE]">{t("After a supported login, approve Android's save prompt, then import it here.")}</p>
+            <p className="mt-1 text-sm text-[#AEB4BE]">{t("After a supported login, approve Android's save prompt. PasKey can offer it immediately; import only adds it to your main vault.")}</p>
           </div>
         </div>
         <button type="button" onClick={importSavedLogins} disabled={importing} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#C8A96B]/50 px-4 py-3 text-sm font-medium text-[#C8A96B] disabled:opacity-60">
