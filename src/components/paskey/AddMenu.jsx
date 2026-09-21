@@ -64,7 +64,7 @@ export default function AddMenu() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] overscroll-none bg-[rgba(3,3,1,0.74)] backdrop-blur-[14px]"
+          className="fixed inset-0 z-[60] overscroll-none bg-[rgba(3,3,1,0.80)]"
           onClick={close}
         >
           <div
@@ -85,13 +85,13 @@ export default function AddMenu() {
                   animate={{ opacity: 1, scale: 1, x: position.x, y: position.y }}
                   exit={{ opacity: 0, scale: 0.55, x: 0, y: 0 }}
                   transition={{
-                    type: 'spring',
-                    stiffness: 360,
-                    damping: 28,
-                    delay: index * 0.025,
+                    type: 'tween',
+                    duration: 0.13,
+                    ease: [0.2, 0, 0, 1],
+                    delay: index * 0.01,
                   }}
                   whileTap={{ scale: 0.88 }}
-                  className="pk-add-menu-interactive absolute bottom-0 left-1/2 flex h-14 w-14 -ml-7 items-center justify-center rounded-full border border-white/15 bg-[#070707]/96 text-[#C8A96B] shadow-xl shadow-black/55 backdrop-blur-md touch-manipulation"
+                  className="pk-add-menu-interactive absolute bottom-0 left-1/2 flex h-14 w-14 -ml-7 items-center justify-center rounded-full border border-white/15 bg-[#070707]/96 text-[#C8A96B] shadow-lg shadow-black/45 touch-manipulation"
                 >
                   <CategoryIcon name={category.icon} className="h-5 w-5" color="#FF4365" />
                 </motion.button>
@@ -109,8 +109,8 @@ export default function AddMenu() {
             initial={{ opacity: 0, y: 12, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.96 }}
-            transition={{ duration: 0.18 }}
-            className="pk-add-menu-interactive pk-add-close-center fixed left-1/2 z-[70] inline-flex h-11 -translate-x-1/2 items-center justify-center gap-2 rounded-full border border-white/15 bg-[#070707]/96 px-5 text-sm font-medium text-white shadow-xl shadow-black/60 backdrop-blur-md touch-manipulation active:scale-95"
+            transition={{ duration: 0.12, ease: [0.2, 0, 0, 1] }}
+            className="pk-add-menu-interactive pk-add-close-center fixed left-1/2 z-[70] inline-flex h-11 -translate-x-1/2 items-center justify-center gap-2 rounded-full border border-white/15 bg-[#070707]/96 px-5 text-sm font-medium text-white shadow-lg shadow-black/45 touch-manipulation active:scale-95"
           >
             <X className="h-5 w-5" />
             <span>{t('Close')}</span>
