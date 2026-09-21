@@ -235,9 +235,11 @@ export default function Autofill() {
       const { imported, deduplicated } = await importAndSyncAutofillVault(repo, dec);
       await refresh();
       if (imported > 0) {
-        setNotice(`${imported} saved ${imported === 1 ? 'login was' : 'logins were'} added to PasKey.${deduplicated ? ` ${deduplicated} duplicate record was removed.` : ''}`);
+        setNotice(language === 'ar'
+          ? `تمت إضافة ${imported} من بيانات الدخول إلى PasKey.${deduplicated ? ` وتمت إزالة ${deduplicated} من السجلات المكررة.` : ''}`
+          : `${imported} saved ${imported === 1 ? 'login was' : 'logins were'} added to PasKey.${deduplicated ? ` ${deduplicated} duplicate record was removed.` : ''}`);
       } else {
-        setNotice('No new Android saves were waiting to import.');
+        setNotice(t('No new Android saves were waiting to import.'));
       }
     } catch {
       setError(t('Could not import saved logins. Your existing vault data is unchanged; please try again.'));
