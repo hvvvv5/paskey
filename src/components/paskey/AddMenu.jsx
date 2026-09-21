@@ -114,7 +114,7 @@ export default function AddMenu() {
             onPointerMove={moveDrag}
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
-            className="pk-add-wheel fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom))] right-3 z-[70] h-[21rem] w-[18rem] touch-none select-none"
+            className="pk-add-wheel pk-add-wheel-safe fixed z-[70] h-[21rem] w-[18rem] touch-none select-none"
           >
             <AnimatePresence initial={false}>
               {visibleCategories.map(({ category, position }) => (
@@ -152,7 +152,7 @@ export default function AddMenu() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.96 }}
             transition={{ duration: 0.18 }}
-            className="pk-add-close fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] right-5 z-[70] inline-flex h-11 items-center justify-center gap-2 rounded-full border border-white/15 bg-[#070707]/95 px-5 text-sm font-medium text-white shadow-xl shadow-black/60 backdrop-blur-md active:scale-95"
+            className="pk-add-close pk-add-close-safe fixed z-[70] inline-flex h-11 items-center justify-center gap-2 rounded-full border border-white/15 bg-[#070707]/95 px-5 text-sm font-medium text-white shadow-xl shadow-black/60 backdrop-blur-md active:scale-95"
           >
             <X className="h-5 w-5" />
             <span>Close</span>
