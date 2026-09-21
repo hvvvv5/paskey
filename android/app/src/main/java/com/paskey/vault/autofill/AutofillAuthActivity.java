@@ -154,6 +154,10 @@ public class AutofillAuthActivity extends FragmentActivity {
 
             Intent result = new Intent();
             result.putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset.build());
+            Bundle clientState = source.getBundleExtra(AutofillManager.EXTRA_CLIENT_STATE);
+            if (clientState != null) {
+                result.putExtra(AutofillManager.EXTRA_CLIENT_STATE, clientState);
+            }
             setResult(Activity.RESULT_OK, result);
             finish();
         } catch (Exception ignored) {
