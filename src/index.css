@@ -459,6 +459,7 @@ html[data-pk-theme='pro'] {
 }
 
 .pk-safe-drawer {
+  max-height: calc(100vh - var(--pk-safe-top));
   max-height: calc(100dvh - var(--pk-safe-top));
   padding-right: var(--pk-safe-right);
   padding-bottom: var(--pk-safe-bottom);
@@ -470,6 +471,9 @@ html[data-pk-theme='pro'] {
     calc(100% - var(--pk-safe-left) - var(--pk-safe-right) - 2rem),
     32rem
   ) !important;
+  max-height: calc(
+    100vh - var(--pk-safe-top) - var(--pk-safe-bottom) - 2rem
+  );
   max-height: calc(
     100dvh - var(--pk-safe-top) - var(--pk-safe-bottom) - 2rem
   );
@@ -496,4 +500,51 @@ html[data-pk-theme='pro'] {
 
 .pk-splash-logo > svg {
   display: block;
+}
+
+
+/* Safe placement for remaining fixed UI surfaces. */
+.pk-add-wheel-safe {
+  right: max(0.75rem, var(--pk-safe-right));
+  bottom: calc(8.75rem + var(--pk-safe-bottom));
+}
+
+.pk-add-close-safe {
+  right: max(1.25rem, var(--pk-safe-right));
+  bottom: calc(5.25rem + var(--pk-safe-bottom));
+}
+
+.pk-safe-sheet-top {
+  padding-top: max(1.5rem, var(--pk-safe-top)) !important;
+  padding-right: max(1.5rem, var(--pk-safe-right)) !important;
+  padding-left: max(1.5rem, var(--pk-safe-left)) !important;
+}
+
+.pk-safe-sheet-bottom {
+  padding-right: max(1.5rem, var(--pk-safe-right)) !important;
+  padding-bottom: max(1.5rem, var(--pk-safe-bottom)) !important;
+  padding-left: max(1.5rem, var(--pk-safe-left)) !important;
+}
+
+.pk-safe-sheet-side {
+  top: var(--pk-safe-top) !important;
+  bottom: var(--pk-safe-bottom) !important;
+  height: auto !important;
+  max-height: calc(100vh - var(--pk-safe-top) - var(--pk-safe-bottom));
+  max-height: calc(100dvh - var(--pk-safe-top) - var(--pk-safe-bottom));
+  overflow-y: auto;
+}
+
+.pk-safe-toast-viewport {
+  top: var(--pk-safe-top) !important;
+  padding-right: max(1rem, var(--pk-safe-right)) !important;
+  padding-left: max(1rem, var(--pk-safe-left)) !important;
+}
+
+@media (min-width: 640px) {
+  .pk-safe-toast-viewport {
+    top: auto !important;
+    right: var(--pk-safe-right) !important;
+    bottom: var(--pk-safe-bottom) !important;
+  }
 }
