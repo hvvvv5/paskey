@@ -75,18 +75,19 @@ export function createVaultRepository({ enc, dec }) {
           await writeNativeVaultEntity(entity, rows);
         }
         cache.set(entity, rows);
-      } catch {
-        // Preserve local data if the native database is unavailable or its
-        // Keystore key cannot decrypt it. The vault remains usable in legacy
-        // mode and the next unlock retries migration.
+      } catch (error) {
+        // Android vault storage is authoritative. Falling back to browser
+        // localStorage after a native/Keystore failure could silently weaken
+        // at-rest protection, so fail closed while preserving legacy rows.
         migrationFailed = true;
         cache.set(entity, localRows);
+        throw new Error(`Secure Android vault storage is unavailable for ${entity}.`, { cause: error });
       }
     }
     if (!migrationFailed && nativeStorage) {
       for (const entity of entities) localStorage.removeItem(KEY(entity));
     }
-    if (migrationFailed) nativeStorage = false;
+    if (migrationFailed) throw new Error('Secure Android vault storage migration failed.');
   })();
 
   const readRows = async (entity) => {
