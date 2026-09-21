@@ -548,3 +548,44 @@ html[data-pk-theme='pro'] {
     bottom: var(--pk-safe-bottom) !important;
   }
 }
+
+
+/* Semantic feedback colors stay readable in Dark, Cream and Pro themes. */
+:root {
+  --pk-success-text: #A7F3D0;
+  --pk-success-bg: rgb(16 185 129 / 12%);
+  --pk-success-border: rgb(52 211 153 / 42%);
+  --pk-error-text: #FCA5A5;
+  --pk-error-bg: rgb(239 68 68 / 12%);
+  --pk-error-border: rgb(248 113 113 / 42%);
+}
+
+html[data-pk-theme='cream'] {
+  --pk-success-text: #1F6B3A;
+  --pk-success-bg: #E7F4E8;
+  --pk-success-border: #74A87D;
+  --pk-error-text: #9F2638;
+  --pk-error-bg: #FBEAEC;
+  --pk-error-border: #D78491;
+}
+
+html[data-pk-theme='pro'] {
+  --pk-success-text: #7FF5E8;
+  --pk-success-bg: rgb(0 217 192 / 12%);
+  --pk-success-border: rgb(0 217 192 / 58%);
+  --pk-error-text: #FF93A6;
+  --pk-error-bg: rgb(255 67 101 / 13%);
+  --pk-error-border: rgb(255 107 131 / 60%);
+}
+
+.pk-status-success {
+  color: var(--pk-success-text) !important;
+  background: var(--pk-success-bg) !important;
+  border-color: var(--pk-success-border) !important;
+}
+
+.pk-status-error {
+  color: var(--pk-error-text) !important;
+  background: var(--pk-error-bg) !important;
+  border-color: var(--pk-error-border) !important;
+}
