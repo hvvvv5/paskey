@@ -371,7 +371,7 @@ html[data-pk-theme='pro'] {
 .pk-settings-sheet {
   border-top-left-radius: 1.25rem !important;
   border-top-right-radius: 1.25rem !important;
-  box-shadow: 0 -18px 48px rgb(0 0 0 / 20%);
+  box-shadow: 0 -10px 24px rgb(0 0 0 / 18%);
 }
 
 .pk-settings-sheet-title {
@@ -613,5 +613,29 @@ html[data-pk-theme='pro'] {
 
   .pk-add-close-center {
     bottom: calc(4.25rem + var(--pk-safe-bottom));
+  }
+}
+
+
+/* Keep touch interactions immediate and avoid expensive motion when Android
+   or the user requests reduced animation. */
+button,
+a,
+[role='button'] {
+  touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .pk-shimmer {
+    animation: none !important;
   }
 }
