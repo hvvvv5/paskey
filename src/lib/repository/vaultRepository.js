@@ -196,6 +196,48 @@ export function createVaultRepository({ enc, dec }) {
     await writeRows(cat.entity, rows);
   };
 
+  const upsertAutofillLogin = (values) => serializeMutation(async () => {
+    const cat = getCategory('passwords');
+    if (!cat) throw new Error('Passwords category unavailable');
+    const rows = await readRows(cat.entity);
+    const website = String(values?.website || '').trim().toLowerCase();
+    const applicationIdentifier = String(values?.applicationIdentifier || '').trim();
+    const identity = String(values?.email || values?.phone || values?.username || '').trim().toLowerCase();
+    const pendingId = pendingIdOf(values);
+
+    const existingIndex = rows.findIndex((row) => {
+      if (pendingId && pendingIdOf(row) === pendingId) return true;
+      const rowIdentity = String(row.email || row.phone || row.username || '').trim().toLowerCase();
+      const sameTarget = website
+        ? String(row.website || '').trim().toLowerCase() === website
+        : applicationIdentifier && String(row.applicationIdentifier || '').trim() === applicationIdentifier;
+      return Boolean(identity && rowIdentity === identity && sameTarget);
+    });
+
+    const payload = await buildPayload(cat, values, enc);
+    if (existingIndex >= 0) {
+      rows[existingIndex] = {
+        ...rows[existingIndex],
+        ...payload,
+        updated_date: now(),
+        ...(pendingId ? { _paskeyPendingId: pendingId } : {}),
+      };
+      await writeRows(cat.entity, rows);
+      return { id: rows[existingIndex].id, existing: true, updated: true };
+    }
+
+    const row = {
+      id: uid(),
+      created_date: now(),
+      updated_date: now(),
+      ...payload,
+      ...(pendingId ? { _paskeyPendingId: pendingId } : {}),
+    };
+    rows.push(row);
+    await writeRows(cat.entity, rows);
+    return { id: row.id, existing: false, updated: false };
+  });
+
   const dedupePendingLogins = async () => {
     const entities = [...new Set(CATEGORIES.map((category) => category.entity))];
     let removed = 0;
@@ -317,7 +359,7 @@ export function createVaultRepository({ enc, dec }) {
 
   return {
     listCategory, listItems, getItem, createItem, updateItem, deleteItem,
-    toggleFavorite, markUsed, dedupePendingLogins, searchItems,
+    toggleFavorite, markUsed, upsertAutofillLogin, dedupePendingLogins, searchItems,
     getSecurityStatistics, exportRaw, importRaw, eraseAll,
   };
 }
