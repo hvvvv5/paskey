@@ -302,8 +302,8 @@ export default function Autofill() {
         <span>{t('Passwords hidden')}</span>
       </div>
 
-      {notice ? <p role="status" className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-100">{notice}</p> : null}
-      {error ? <p role="alert" className="mt-4 rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
+      {notice ? <p role="status" className="pk-status pk-status-success mt-4 rounded-xl border p-3 text-sm">{notice}</p> : null}
+      {error ? <p role="alert" className="pk-status pk-status-error mt-4 rounded-xl border p-3 text-sm">{error}</p> : null}
 
       <div className="mt-4 space-y-3">
         {!loading && filtered.length === 0 ? (
