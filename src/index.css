@@ -466,12 +466,8 @@ html[data-pk-theme='pro'] {
 }
 
 .pk-safe-dialog {
-  top: calc(
-    var(--pk-safe-top) +
-    (100dvh - var(--pk-safe-top) - var(--pk-safe-bottom)) / 2
-  ) !important;
   width: min(
-    100% - var(--pk-safe-left) - var(--pk-safe-right) - 2rem,
+    calc(100% - var(--pk-safe-left) - var(--pk-safe-right) - 2rem),
     32rem
   ) !important;
   max-height: calc(
