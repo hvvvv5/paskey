@@ -26,21 +26,21 @@ export default function Generator() {
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
         <p className="min-h-14 break-all font-mono text-lg leading-relaxed text-white">{value}</p>
-        <p className="mt-3 text-xs uppercase tracking-widest" style={{ color: score >= 75 ? '#C8A96B' : '#AEB4BE' }}>{label}</p>
+        <p className="mt-3 text-xs uppercase tracking-widest" style={{ color: score >= 75 ? '#C8A96B' : '#AEB4BE' }}>{t(label)}</p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <CopyButton primary sensitive label="Copy" getValue={() => value} />
           <button
             type="button" onClick={() => setValue(generatePassword(opts))}
             className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 px-4 py-3 text-sm text-[#AEB4BE] hover:border-[#C8A96B]/50 hover:text-white active:scale-[0.97]"
           >
-            <RefreshCw className="h-3.5 w-3.5" /> Regenerate
+            <RefreshCw className="h-3.5 w-3.5" /> {t('Regenerate')}
           </button>
         </div>
       </div>
 
       <div className="mt-6 rounded-2xl border border-white/10 p-5">
         <label htmlFor="len" className="flex items-center justify-between text-sm text-white">
-          Length <span className="font-mono" style={{ color: '#C8A96B' }}>{opts.length}</span>
+          {t('Length')} <span className="font-mono" style={{ color: '#C8A96B' }}>{opts.length}</span>
         </label>
         <input
           id="len" type="range" min={8} max={64} value={opts.length}
