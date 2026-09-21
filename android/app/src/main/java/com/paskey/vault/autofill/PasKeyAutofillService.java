@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.service.autofill.AutofillService;
 import android.service.autofill.Dataset;
@@ -62,6 +63,12 @@ public class PasKeyAutofillService extends AutofillService {
     private static final int FIELD_USERNAME = 3;
     private static final int FIELD_PASSWORD = 4;
 
+    private static final String STATE_IDENTITY_ID = "paskey.identityId";
+    private static final String STATE_PASSWORD_ID = "paskey.passwordId";
+    private static final String STATE_IDENTITY_KIND = "paskey.identityKind";
+    private static final String STATE_WEB_DOMAIN = "paskey.webDomain";
+    private static final String STATE_PACKAGE = "paskey.package";
+
     private AutofillId emailId;
     private AutofillId usernameId;
     private AutofillId passwordId;
@@ -96,9 +103,20 @@ public class PasKeyAutofillService extends AutofillService {
         try {
             items = PasKeyAutofillStore.loadAvailable(this);
         } catch (Exception ignored) {
-            callback.onSuccess(buildSaveOnlyResponse());
-            return;
+            items = new JSONArray();
         }
+
+        Bundle clientState = buildClientState(request);
+        AutofillId effectiveIdentityId = stateAutofillId(
+                clientState,
+                STATE_IDENTITY_ID,
+                preferredIdentityId()
+        );
+        AutofillId effectivePasswordId = stateAutofillId(
+                clientState,
+                STATE_PASSWORD_ID,
+                passwordId
+        );
 
         FillResponse.Builder response = new FillResponse.Builder();
         int datasetCount = 0;
@@ -145,8 +163,9 @@ public class PasKeyAutofillService extends AutofillService {
             }
         }
 
-        SaveInfo saveInfo = buildSaveInfo();
+        SaveInfo saveInfo = buildSaveInfo(effectiveIdentityId, effectivePasswordId);
         if (saveInfo != null) response.setSaveInfo(saveInfo);
+        response.setClientState(clientState);
         callback.onSuccess(datasetCount == 0 && saveInfo == null ? null : response.build());
     }
 
@@ -460,19 +479,71 @@ public class PasKeyAutofillService extends AutofillService {
         return false;
     }
 
-    private SaveInfo buildSaveInfo() {
-        AutofillId identityId = emailId != null ? emailId : (phoneId != null ? phoneId : usernameId);
-        if (identityId == null || passwordId == null) return null;
-        SaveInfo.Builder builder = new SaveInfo.Builder(
-                SaveInfo.SAVE_DATA_TYPE_USERNAME | SaveInfo.SAVE_DATA_TYPE_PASSWORD,
-                new AutofillId[] { identityId, passwordId }
-        );
-        return builder.build();
+    private AutofillId preferredIdentityId() {
+        return emailId != null ? emailId : (phoneId != null ? phoneId : usernameId);
     }
 
-    private FillResponse buildSaveOnlyResponse() {
-        SaveInfo saveInfo = buildSaveInfo();
-        return saveInfo == null ? null : new FillResponse.Builder().setSaveInfo(saveInfo).build();
+    private String preferredIdentityKind() {
+        if (emailId != null) return "email";
+        if (phoneId != null) return "phone";
+        return usernameId != null ? "username" : "";
+    }
+
+    @SuppressWarnings("deprecation")
+    private AutofillId stateAutofillId(Bundle state, String key, AutofillId current) {
+        if (current != null) return current;
+        return state == null ? null : state.getParcelable(key);
+    }
+
+    private Bundle buildClientState(FillRequest request) {
+        Bundle state = request.getClientState() == null
+                ? new Bundle()
+                : new Bundle(request.getClientState());
+
+        AutofillId identityId = preferredIdentityId();
+        if (identityId != null) {
+            state.putParcelable(STATE_IDENTITY_ID, identityId);
+            state.putString(STATE_IDENTITY_KIND, preferredIdentityKind());
+        }
+        if (passwordId != null) {
+            state.putParcelable(STATE_PASSWORD_ID, passwordId);
+        }
+        if (!targetWebDomain.isEmpty()) {
+            state.putString(STATE_WEB_DOMAIN, targetWebDomain);
+        }
+        if (!targetPackage.isEmpty()) {
+            state.putString(STATE_PACKAGE, targetPackage);
+        }
+        return state;
+    }
+
+    private SaveInfo buildSaveInfo(AutofillId identityId, AutofillId savedPasswordId) {
+        if (identityId == null && savedPasswordId == null) return null;
+
+        ArrayList<AutofillId> requiredIds = new ArrayList<>();
+        int dataType = 0;
+        if (identityId != null) {
+            requiredIds.add(identityId);
+            dataType |= SaveInfo.SAVE_DATA_TYPE_USERNAME;
+        }
+        if (savedPasswordId != null) {
+            requiredIds.add(savedPasswordId);
+            dataType |= SaveInfo.SAVE_DATA_TYPE_PASSWORD;
+        }
+
+        SaveInfo.Builder builder = new SaveInfo.Builder(
+                dataType,
+                requiredIds.toArray(new AutofillId[0])
+        );
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                && (identityId == null || savedPasswordId == null)) {
+            builder.setFlags(SaveInfo.FLAG_DELAY_SAVE);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                && identityId != null && savedPasswordId != null) {
+            builder.setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE);
+        }
+        return builder.build();
     }
 
     private void findFields(AssistStructure.ViewNode node) {
@@ -594,6 +665,19 @@ public class PasKeyAutofillService extends AutofillService {
         return "";
     }
 
+    private String getFieldText(List<FillContext> contexts, AutofillId targetId) {
+        if (contexts == null || targetId == null) return "";
+        for (FillContext context : contexts) {
+            if (context == null || context.getStructure() == null) continue;
+            AssistStructure structure = context.getStructure();
+            for (int i = 0; i < structure.getWindowNodeCount(); i++) {
+                String value = getFieldText(structure.getWindowNodeAt(i).getRootViewNode(), targetId);
+                if (!value.isEmpty()) return value;
+            }
+        }
+        return "";
+    }
+
     @Override
     public void onSaveRequest(SaveRequest request, SaveCallback callback) {
         try {
@@ -605,6 +689,30 @@ public class PasKeyAutofillService extends AutofillService {
             CapturedLogin captured = new CapturedLogin();
             for (FillContext context : request.getFillContexts()) {
                 if (context != null) captureLogin(context.getStructure(), captured);
+            }
+
+            Bundle clientState = request.getClientState();
+            if (clientState != null) {
+                AutofillId savedIdentityId = stateAutofillId(clientState, STATE_IDENTITY_ID, null);
+                AutofillId savedPasswordId = stateAutofillId(clientState, STATE_PASSWORD_ID, null);
+                String savedIdentity = getFieldText(request.getFillContexts(), savedIdentityId);
+                String savedPassword = getFieldText(request.getFillContexts(), savedPasswordId);
+
+                if (!savedIdentity.isEmpty()) {
+                    String kind = clientState.getString(STATE_IDENTITY_KIND, "username");
+                    if ("email".equals(kind)) captured.email = savedIdentity.trim();
+                    else if ("phone".equals(kind)) captured.phone = savedIdentity.trim();
+                    else captured.username = savedIdentity.trim();
+                }
+                if (!savedPassword.isEmpty()) {
+                    captured.password = savedPassword;
+                }
+                if (captured.website.isEmpty()) {
+                    captured.website = clientState.getString(STATE_WEB_DOMAIN, "");
+                }
+                if (captured.applicationIdentifier.isEmpty()) {
+                    captured.applicationIdentifier = clientState.getString(STATE_PACKAGE, "");
+                }
             }
 
             String identity = captured.identity();
