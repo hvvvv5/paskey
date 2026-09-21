@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.UserNotAuthenticatedException;
 import android.util.Base64;
+import android.view.WindowManager;
 
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
@@ -388,6 +389,27 @@ public class PasKeySecurityPlugin extends Plugin {
         } catch (Exception exception) {
             call.reject("Unable to clear biometric unlock", exception);
         }
+    }
+
+
+    @PluginMethod
+    public void setScreenshotProtection(PluginCall call) {
+        Boolean enabled = call.getBoolean("enabled", true);
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            if (Boolean.TRUE.equals(enabled)) {
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            } else {
+                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            }
+            JSObject result = new JSObject();
+            result.put("enabled", Boolean.TRUE.equals(enabled));
+            call.resolve(result);
+        });
     }
 
     @PluginMethod
