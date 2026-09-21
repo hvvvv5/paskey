@@ -1,0 +1,73 @@
+{
+  "name": "RecoveryConfig",
+  "type": "object",
+  "properties": {
+    "userId": {
+      "type": "string",
+      "description": "Owner user id (explicit, since records are created by the service role)"
+    },
+    "emailHash": {
+      "type": "string",
+      "description": "SHA-256('pk:' + lowercase email) \u2014 used to match without storing the plaintext email"
+    },
+    "recoveryKeyCipher": {
+      "type": "string",
+      "description": "Recovery key R encrypted with the server-side secret (AES-256-GCM)"
+    },
+    "confirmed": {
+      "type": "boolean",
+      "default": false,
+      "description": "True once the recovery email has been verified during setup"
+    },
+    "codeHash": {
+      "type": "string",
+      "description": "SHA-256(codeSalt + ':' + code) of the current verification code"
+    },
+    "codeSalt": {
+      "type": "string"
+    },
+    "codeExpiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "attempts": {
+      "type": "number",
+      "default": 0
+    },
+    "lastSentAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "maxAttempts": {
+      "type": "number",
+      "default": 5
+    }
+  },
+  "required": [
+    "userId",
+    "emailHash",
+    "recoveryKeyCipher"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

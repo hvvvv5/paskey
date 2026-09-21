@@ -1,0 +1,87 @@
+{
+  "name": "VaultItem",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "password",
+        "email",
+        "social"
+      ],
+      "default": "password"
+    },
+    "title": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "applicationIdentifier": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "password": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "recoveryEmail": {
+      "type": "string"
+    },
+    "recoveryPhone": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "notes": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "favorite": {
+      "type": "boolean",
+      "default": false
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "lastUsedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "credentialKind": {
+      "type": "string",
+      "enum": [
+        "password",
+        "passkey"
+      ],
+      "default": "password"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

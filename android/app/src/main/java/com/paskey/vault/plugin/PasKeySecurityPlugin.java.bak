@@ -1,0 +1,276 @@
+package com.paskey.vault.plugin;
+
+import android.util.Base64;
+
+import androidx.biometric.BiometricPrompt;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
+
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.paskey.vault.security.PasKeyKeyStore;
+
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.Executor;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+
+@CapacitorPlugin(name = "PasKeySecurity")
+public class PasKeySecurityPlugin extends Plugin {
+
+    private static final String TRANSFORMATION = "AES/GCM/NoPadding";
+
+    @PluginMethod
+    public void isKeystoreAvailable(PluginCall call) {
+        try {
+            JSObject result = new JSObject();
+            result.put("available", true);
+            result.put("keyExists", PasKeyKeyStore.exists());
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("Android Keystore unavailable", e);
+        }
+    }
+
+    @PluginMethod
+    public void encrypt(PluginCall call) {
+        String plaintext = call.getString("plaintext");
+
+        if (plaintext == null) {
+            call.reject("plaintext is required");
+            return;
+        }
+
+        try {
+            SecretKey key = PasKeyKeyStore.getOrCreateKey();
+
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            cipher.init(Cipher.ENCRYPT_MODE, key);
+
+            byte[] encrypted =
+                    cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+
+            JSObject result = new JSObject();
+            result.put(
+                    "ciphertext",
+                    Base64.encodeToString(encrypted, Base64.NO_WRAP)
+            );
+            result.put(
+                    "iv",
+                    Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP)
+            );
+
+           call.resolve(result);
+
+        } catch (Exception e) {
+            call.reject("Encryption failed", e);
+        }
+    }
+
+    @PluginMethod
+    public void decrypt(PluginCall call) {
+        String ciphertextB64 = call.getString("ciphertext");
+        String ivB64 = call.getString("iv");
+
+        if (ciphertextB64 == null || ivB64 == null) {
+            call.reject("ciphertext and iv are required");
+            return;
+        }
+
+        try {
+            SecretKey key = PasKeyKeyStore.getOrCreateKey();
+
+            byte[] ciphertext =
+                    Base64.decode(ciphertextB64, Base64.NO_WRAP);
+
+            byte[] iv =
+                    Base64.decode(ivB64, Base64.NO_WRAP);
+
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+
+            cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    key,
+                    new GCMParameterSpec(128, iv)
+            );
+
+            byte[] decrypted = cipher.doFinal(ciphertext);
+
+            JSObject result = new JSObject();
+            result.put(
+                    "plaintext",
+                    new String(decrypted, StandardCharsets.UTF_8)
+            );
+
+            call.resolve(result);
+
+        } catch (Exception e) {
+            call.reject("Decryption failed", e);
+        }
+    }
+
+    @PluginMethod
+    public void wrapKey(PluginCall call) {
+        String keyB64 = call.getString("key");
+
+        if (keyB64 == null) {
+            call.reject("key is required");
+            return;
+        }
+try {
+            SecretKey deviceKey =
+                    PasKeyKeyStore.getOrCreateKey();
+
+            byte[] rawKey =
+                    Base64.decode(keyB64, Base64.NO_WRAP);
+
+            Cipher cipher =
+                    Cipher.getInstance(TRANSFORMATION);
+
+            cipher.init(
+                    Cipher.ENCRYPT_MODE,
+                    deviceKey
+            );
+
+            byte[] wrapped =
+                    cipher.doFinal(rawKey);
+
+            JSObject result = new JSObject();
+
+            result.put(
+                    "wrapped",
+                    Base64.encodeToString(wrapped, Base64.NO_WRAP)
+            );
+
+            result.put(
+                    "iv",
+                    Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP)
+            );
+
+            call.resolve(result);
+
+        } catch (Exception e) {
+            call.reject("Key wrapping failed", e);
+        }
+    }
+
+    @PluginMethod
+    public void unwrapKey(PluginCall call) {
+        String wrappedB64 = call.getString("wrapped");
+        String ivB64 = call.getString("iv");
+
+        if (wrappedB64 == null || ivB64 == null) {
+            call.reject("wrapped and iv are required");
+            return;
+        }
+
+        try {
+            SecretKey deviceKey =
+                    PasKeyKeyStore.getOrCreateKey();
+
+            byte[] wrapped =
+                    Base64.decode(wrappedB64, Base64.NO_WRAP);
+
+            byte[] iv =
+                    Base64.decode(ivB64, Base64.NO_WRAP);
+
+            Cipher cipher =
+                   Cipher.getInstance(TRANSFORMATION);
+
+            cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    deviceKey,
+                    new GCMParameterSpec(128, iv)
+            );
+
+            byte[] rawKey =
+                    cipher.doFinal(wrapped);
+
+            JSObject result = new JSObject();
+
+            result.put(
+                    "key",
+                    Base64.encodeToString(rawKey, Base64.NO_WRAP)
+            );
+
+            call.resolve(result);
+
+        } catch (Exception e) {
+            call.reject("Key unwrapping failed", e);
+        }
+    }
+
+    @PluginMethod
+    public void authenticate(PluginCall call) {
+        FragmentActivity activity = getActivity();
+
+        if (activity == null) {
+            call.reject("Activity unavailable");
+            return;
+        }
+
+        Executor executor =
+                ContextCompat.getMainExecutor(activity);
+
+        BiometricPrompt biometricPrompt =
+                new BiometricPrompt(
+                        activity,
+                        executor,
+                        new BiometricPrompt.AuthenticationCallback() {
+
+                            @Override
+                            public void onAuthenticationSucceeded(
+                                    BiometricPrompt.AuthenticationResult result) {
+
+                                JSObject response = new JSObject();
+                                response.put("authenticated", true);
+                                call.resolve(response);
+                           }
+
+                            @Override
+                            public void onAuthenticationFailed() {
+                                // Allow another biometric attempt.
+                            }
+
+                            @Override
+                            public void onAuthenticationError(
+                                    int errorCode,
+                                    CharSequence errString) {
+
+                                JSObject response = new JSObject();
+                               response.put(
+                                        "authenticated",
+                                        false
+                                );
+                                response.put(
+                                        "errorCode",
+                                        errorCode
+                                );
+                                response.put(
+                                        "error",
+                                        String.valueOf(errString)
+                                );
+
+                                call.resolve(response);
+                            }
+                        }
+                );
+
+        BiometricPrompt.PromptInfo promptInfo =
+                new BiometricPrompt.PromptInfo.Builder()
+                        .setTitle("Unlock PasKey")
+                        .setSubtitle("Verify your identity")
+                        .setNegativeButtonText(
+                                "Use Master Password"
+                       )
+                        .build();
+
+        biometricPrompt.authenticate(promptInfo);
+    }
+}
+

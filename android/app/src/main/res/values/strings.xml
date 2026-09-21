@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PasKey</string>
+    <string name="title_activity_main">PasKey</string>
+    <string name="package_name">com.paskey.vault</string>
+    <string name="custom_url_scheme">com.paskey.vault</string>
+</resources>

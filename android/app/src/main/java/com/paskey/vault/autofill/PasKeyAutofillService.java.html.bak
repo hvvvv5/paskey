@@ -1,0 +1,199 @@
+package com.paskey.vault.autofill;
+
+import android.app.assist.AssistStructure;
+import android.os.CancellationSignal;
+import android.service.autofill.AutofillService;
+import android.service.autofill.Dataset;
+import android.service.autofill.FillCallback;
+import android.service.autofill.FillContext;
+import android.service.autofill.FillRequest;
+import android.service.autofill.FillResponse;
+import android.service.autofill.SaveCallback;
+import android.service.autofill.SaveRequest;
+import android.text.InputType;
+import android.view.autofill.AutofillId;
+import android.view.autofill.AutofillValue;
+import android.widget.RemoteViews;
+import android.util.Log;
+
+public class PasKeyAutofillService extends AutofillService {
+
+    private AutofillId usernameId;
+    private AutofillId passwordId;
+    private AutofillId phoneId;
+
+    @Override
+    public void onFillRequest(
+            FillRequest request,
+            CancellationSignal cancelationSignal,
+            FillCallback callback) {
+
+        Log.d("PasKeyAutofill", "onFillRequest called");
+
+        usernameId = null;
+        passwordId = null;
+        phoneId = null;
+
+        if (request.getFillContexts() == null ||
+                request.getFillContexts().isEmpty()) {
+            callback.onSuccess(null);
+            return;
+        }
+
+        FillContext context =
+                request.getFillContexts()
+                        .get(request.getFillContexts().size() - 1);
+
+        AssistStructure structure = context.getStructure();
+
+        for (int i = 0; i < structure.getWindowNodeCount(); i++) {
+            AssistStructure.WindowNode window =
+                    structure.getWindowNodeAt(i);
+
+            findFields(window.getRootViewNode());
+        }
+
+        if (usernameId == null &&passwordId == null && phoneId == null) {
+            callback.onSuccess(null);
+            return;
+        }
+
+        RemoteViews presentation =
+                new RemoteViews(
+                        getPackageName(),
+                        android.R.layout.simple_list_item_1
+               );
+
+        presentation.setTextViewText(
+                android.R.id.text1,
+                "PasKey Test Account"
+        );
+
+        Dataset.Builder dataset =
+                new Dataset.Builder();
+
+        if (usernameId != null) {
+            dataset.setValue(
+                    usernameId,
+                    AutofillValue.forText("paskey.test@example.com"),
+                    presentation
+            );
+        }
+
+        if (phoneId != null) {
+            dataset.setValue(
+                    phoneId,
+                    AutofillValue.forText("+212600000000"),
+                    presentation
+            );
+        }
+        if (passwordId != null) {
+            dataset.setValue(
+                   passwordId,
+                    AutofillValue.forText("PasKey-Test-1234!"),
+                    presentation
+            );
+        }
+
+        FillResponse response =
+                new FillResponse.Builder()
+                        .addDataset(dataset.build())
+                        .build();
+
+        callback.onSuccess(response);
+    }
+
+    private void findFields(AssistStructure.ViewNode node) {
+        if (node == null) {
+            return;
+        }
+
+        AutofillId id = node.getAutofillId();
+
+        if (id != null) {
+            String text = "";
+
+            if (node.getHint() != null) {
+                text += " " + node.getHint();
+            }
+
+            if (node.getIdEntry() != null) {
+                text += " " + node.getIdEntry();
+            }
+
+            String[] hints = node.getAutofillHints();
+
+            if (hints != null) {
+                for (String hint : hints) {
+                    if (hint != null) {
+                        text += " " + hint;
+                    }
+               }
+            }
+
+            Log.d("PasKeyAutofill", "FIELD class=" + node.getClassName() + " hint=" + node.getHint() + " id=" + node.getIdEntry() + " autofillHints=" + java.util.Arrays.toString(node.getAutofillHints()));
+
+            text = text.toLowerCase();
+
+            int inputType = node.getInputType();
+            int inputClass = inputType & InputType.TYPE_MASK_CLASS;
+            int inputVariation = inputType & InputType.TYPE_MASK_VARIATION;
+
+            if(inputClass == InputType.TYPE_CLASS_PHONE) {
+                text += " phone";
+            }
+
+            if (inputVariation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
+                    inputVariation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS) {
+                text += " email";
+            }
+
+            if (inputVariation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
+                    inputVariation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+                    inputVariation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
+                    inputVariation == InputType.TYPE_NUMBER_VARIATION_PASSWORD) {
+                text += " password";
+            }
+
+            if (passwordId == null &&
+                    (text.contains("password") ||
+                     text.contains("passwd") ||
+                     text.contains("passcode"))) {
+
+                passwordId = id;
+
+            } else if (phoneId == null &&
+                    (text.contains("phone") ||
+                     text.contains("telephone") ||
+                     text.contains("mobile") ||
+                     text.contains("pone_number") ||
+                     text.contains("phonenumber") ||
+                     text.contains("numط·آ·ط¢آ£ط·آ¢ط¢آ©ro de tط·آ·ط¢آ£ط·آ¢ط¢آ©lط·آ·ط¢آ£ط·آ¢ط¢آ©phone") ||
+                     text.contains("numero de telephone") ||
+                     text.contains("ط·آ·ط¢آ·ط·آ¢ط¢آ±ط·آ·ط¢آ¸ط£آ¢أ¢â€ڑآ¬ط¹â€کط·آ·ط¢آ¸ط£آ¢أ¢â€ڑآ¬ط¢آ¦ ط·آ·ط¢آ·ط·آ¢ط¢آ§ط·آ·ط¢آ¸ط£آ¢أ¢â€ڑآ¬أ¢â‚¬ع†ط·آ·ط¢آ¸ط£آ¢أ¢â€ڑآ¬ط·إ’ط·آ·ط¢آ·ط·آ¢ط¢آ§ط·آ·ط¢آ·ط·آ¹ط¢آ¾ط·آ·ط¢آ¸ط·آ¸ط¢آ¾"))) {
+
+                phoneId = id;
+            } else if (usernameId == null &&
+                    (text.contains("username") ||
+                     text.contains("user") ||
+                     text.contains("email") ||
+                     text.contains("login"))) {
+
+                usernameId = id;
+            }
+        }
+
+        for (int i = 0; i < node.getChildCount(); i++) {
+            findFields(node.getChildAt(i));
+        }
+    }
+
+    @Override
+    public void onSaveRequest(
+            SaveRequest request,
+            SaveCallback callback) {
+
+        callback.onSuccess();
+    }
+}
+

@@ -1,0 +1,52 @@
+{
+  "name": "Card",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "cardholder": {
+      "type": "string"
+    },
+    "number": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "expiry": {
+      "type": "string"
+    },
+    "cvv": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "pin": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "notes": {
+      "type": "string",
+      "description": "AES-GCM ciphertext"
+    },
+    "favorite": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

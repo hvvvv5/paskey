@@ -1,0 +1,64 @@
+import { Capacitor } from '@capacitor/core';
+import { PasKeySecurity, getPendingAutofillSaves, removePendingAutofillSaves } from './PasKeySecurity';
+
+export async function syncAutofillVault(repo, dec) {
+  if (Capacitor.getPlatform() !== 'android') return;
+
+  if (!repo) return;
+
+  const items = await repo.listItems();
+  const autofillItems = [];
+
+  for (const item of items) {
+    const entry = {
+      id: item.id,
+      category: item._category || '',
+      title: item.title || item.name || item.bankName || item.provider || '',
+      website: item.website || '',
+      applicationIdentifier: item.applicationIdentifier || '',
+      username: item.username || '',
+      email: item.email || '',
+      phone: item.phone || '',
+    };
+
+    if (item.password) {
+      entry.password = await dec(item.password);
+    }
+
+    if (item._category === 'email' && item.recoveryPhone) {
+      entry.phone = await dec(item.recoveryPhone);
+    }
+
+    if (item._category === 'banking') {
+      entry.bankName = item.bankName || '';
+      entry.accountHolder = item.accountHolder || '';
+
+      if (item.accountNumber) {
+        entry.accountNumber = await dec(item.accountNumber);
+      }
+
+      if (item.iban) {
+        entry.iban = await dec(item.iban);
+      }
+    }
+
+    if (item._category === 'cards') {
+      entry.cardholder = item.cardholder || '';
+      entry.expiry = item.expiry || '';
+
+      if (item.number) {
+        entry.cardNumber = await dec(item.number);
+      }
+
+      if (item.cvv) {
+        entry.cvv = await dec(item.cvv);
+      }
+    }
+
+    autofillItems.push(entry);
+  }
+
+  await PasKeySecurity.syncAutofillVault({
+    json: JSON.stringify(autofillItems),
+  });
+}

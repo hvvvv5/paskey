@@ -1,0 +1,15 @@
+import { registerPlugin } from '@capacitor/core';
+
+export const PasKeySecurity = registerPlugin('PasKeySecurity');
+export async function getPendingAutofillSaves() { 
+    const result = await PasKeySecurity.getPendingAutofillSaves();
+    return JSON.parse(result.json || '[]');
+}
+
+export async function clearPendingAutofillSaves() {
+    await PasKeySecurity.clearPendingAutofillSaves();
+}
+
+export async function removePendingAutofillSaves(ids) {
+    await PasKeySecurity.removePendingAutofillSaves({ json: JSON.stringify(ids) });
+}

@@ -1,0 +1,30 @@
+package com.paskey.vault.autofill;
+
+import android.os.CancellationSignal;
+import android.service.autofill.AutofillService;
+import android.service.autofill.FillCallback;
+import android.service.autofill.FillRequest;
+import android.service.autofill.SaveCallback;
+import android.service.autofill.SaveRequest;
+
+public class PasKeyAutofillService extends AutofillService {
+
+    @Override
+    public void onFillRequest(
+            FillRequest request,
+            CancellationSignal cancellationSignal,
+            FillCallback callback) {
+
+        // PasKey Autofill foundation.
+        // Dataset generation will be added in the next step.
+        callback.onSuccess(null);
+    }
+
+    @Override
+    public void onSaveRequest(
+            SaveRequest request,
+            SaveCallback callback) {
+
+        callback.onSuccess();
+    }
+}

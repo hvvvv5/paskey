@@ -1,0 +1,208 @@
+package com.paskey.vault.autofill;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.util.Base64;
+
+import com.paskey.vault.security.PasKeyKeyStore;
+
+import org.json.JSONArray;
+
+import java.nio.charset.StandardCharsets;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+
+public final class PasKeyAutofillStore {
+
+    private static final String PREFS = "paskey_secure_autofill";
+    private static final String KEY_CIPHERTEXT = "vault_ciphertext";
+    private static final String KEY_IV = "vault_iv";
+    private static final String TRANSFORMATION = "AES/GCM/NoPadding";
+
+    private PasKeyAutofillStore() {}
+
+    public static void save(Context context, JSONArray items) throws Exception {
+        SecretKey key = PasKeyKeyStore.getOrCreateKey();
+
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+
+        byte[] plaintext =
+                items.toString().getBytes(StandardCharsets.UTF_8);
+
+        byte[] ciphertext =
+                cipher.doFinal(plaintext);
+
+        SharedPreferences prefs =
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+
+        prefs.edit()
+                .putString(
+                        KEY_CIPHERTEXT,
+                        Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+                )
+                .putString(
+                        KEY_IV,
+                        Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP)
+                )
+                .apply();
+    }
+
+    public static JSONArray load(Context context) throws Exception {
+        SharedPreferences prefs =
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+
+        String ciphertextB64 =
+                prefs.getString(KEY_CIPHERTEXT, null);
+
+        String ivB64 =
+               prefs.getString(KEY_IV, null);
+
+        if (ciphertextB64 == null || ivB64 == null) {
+            return new JSONArray();
+        }
+
+        SecretKey key = PasKeyKeyStore.getOrCreateKey();
+
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+
+        cipher.init(
+                Cipher.DECRYPT_MODE,
+                key,
+                new GCMParameterSpec(
+                        128,
+                        Base64.decode(ivB64, Base64.NO_WRAP)
+                )
+        );
+
+        byte[] plaintext =
+                cipher.doFinal(
+                        Base64.decode(
+                                ciphertextB64,
+                                Base64.NO_WRAP
+                        )
+                );
+
+        return new JSONArray(
+                new String(
+                        plaintext,
+                        StandardCharsets.UTF_8
+                )
+        );
+    }
+
+    public static void savePending(Context context, JSONArray items) throws Exception {
+        SecretKey key = PasKeyKeyStore.getOrCreateKey();
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        byte[] ciphertext = cipher.doFinal(items.toString().getBytes(StandardCharsets.UTF_8));
+        boolean saved = context.getSharedPreferences("paskey_pending_autofill", Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_CIPHERTEXT, Base64.encodeToString(ciphertext, Base64.NO_WRAP))
+                .putString(KEY_IV, Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP))
+                .commit();
+        if (!saved) {
+            throw new java.io.IOException("Unable to save pending autofill credentials");
+        }
+    }
+
+    public static void removePending(Context context, JSONArray pendingIds) throws Exception {
+        if (pendingIds.length() == 0) {
+            return;
+        }
+
+        JSONArray current = loadPending(context);
+        JSONArray remaining = new JSONArray();
+
+        for (int i = 0; i < current.length(); i++) {
+            org.json.JSONObject item = current.optJSONObject(i);
+            boolean shouldRemove = false;
+
+           if (item != null) {
+                String itemId = item.optString("pendingId", "");
+
+                for (int j = 0; j < pendingIds.length(); j++) {
+                    if (itemId.equals(pendingIds.optString(j, ""))) {
+                        shouldRemove = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!shouldRemove) {
+                remaining.put(item);
+            }
+        }
+
+        if (remaining.length() == 0) {
+            cearPending(context);
+        } else {
+            savePending(context, remaining);
+        }
+    }
+    public static JSONArray loadPending(Context context) throws Exception {
+        SharedPreferences prefs =
+                context.getSharedPreferences("paskey_pending_autofill", Context.MODE_PRIVATE);
+
+        String ciphertextB64 =
+                prefs.getString(KEY_CIPHERTEXT, null);
+
+        String ivB64 =
+               prefs.getString(KEY_IV, null);
+
+        if (ciphertextB64 == null || ivB64 == null) {
+            return new JSONArray();
+        }
+
+        SecretKey key = PasKeyKeyStore.getOrCreateKey();
+
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+
+        cipher.init(
+                Cipher.DECRYPT_MODE,
+                key,
+                new GCMParameterSpec(
+                        128,
+                        Base64.decode(ivB64, Base64.NO_WRAP)
+                )
+        );
+
+        byte[] plaintext =
+                cipher.doFinal(
+                        Base64.decode(
+                                ciphertextB64,
+                                Base64.NO_WRAP
+                        )
+                );
+
+        return new JSONArray(
+                new String(
+                        plaintext,
+                        StandardCharsets.UTF_8
+                )
+        );
+    }
+
+    public static void clearPending(Context context) {
+        context.getSharedPreferences(
+                "paskey_pending_autofill",
+                Context.MODE_PRIVATE
+        ).edit().remove(KEY_CIPHERTEXT).remove(KEY_IV).commit();
+    }
+
+    public static void clear(Context context) {
+        context.getSharedPreferences(
+                PREFS,
+                Context.MODE_PRIVATE
+        ).edit().clear().apply();
+    }
+
+    public static boolean hasData(Context context) {
+        return context.getSharedPreferences(
+                PREFS,
+                Context.MODE_PRIVATE
+        ).contains(KEY_CIPHERTEXT);
+    }
+}
