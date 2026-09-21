@@ -589,3 +589,9 @@ html[data-pk-theme='pro'] {
   background: var(--pk-error-bg) !important;
   border-color: var(--pk-error-border) !important;
 }
+
+
+/* Sub-pages without the main header still begin below the Android status area. */
+.pk-safe-form-page {
+  padding-top: max(1.25rem, calc(var(--pk-safe-top) + 0.5rem)) !important;
+}
