@@ -2,6 +2,22 @@ import { registerPlugin } from '@capacitor/core';
 
 export const PasKeySecurity = registerPlugin('PasKeySecurity');
 
+export async function getAutofillStatus() {
+  try {
+    const result = await PasKeySecurity.getAutofillStatus();
+    return {
+      supported: Boolean(result.supported),
+      enabled: Boolean(result.enabled),
+    };
+  } catch {
+    return { supported: false, enabled: false };
+  }
+}
+
+export async function requestEnableAutofill() {
+  return PasKeySecurity.requestEnableAutofill();
+}
+
 export async function getPendingAutofillSaves() {
   const result = await PasKeySecurity.getPendingAutofillSaves();
   return JSON.parse(result.json || '[]');
