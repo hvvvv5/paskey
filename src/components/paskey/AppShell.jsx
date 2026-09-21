@@ -7,7 +7,7 @@ import Logo from './Logo';
 import Splash from './Splash';
 import UnlockScreen from './UnlockScreen';
 import MasterPasswordSetup from './MasterPasswordSetup';
-import { I18nProvider, useI18n } from '@/lib/i18n';
+import { I18nProvider } from '@/lib/i18n';
 
 
 function Header() {
