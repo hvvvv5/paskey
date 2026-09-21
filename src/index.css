@@ -595,3 +595,23 @@ html[data-pk-theme='pro'] {
 .pk-safe-form-page {
   padding-top: max(1.25rem, calc(var(--pk-safe-top) + 0.5rem)) !important;
 }
+
+
+/* Add menu fan: fixed semicircle above the bottom navigation. */
+.pk-add-semicircle {
+  bottom: calc(9.75rem + var(--pk-safe-bottom));
+}
+
+.pk-add-close-center {
+  bottom: calc(4.75rem + var(--pk-safe-bottom));
+}
+
+@media (max-height: 700px) {
+  .pk-add-semicircle {
+    bottom: calc(8.75rem + var(--pk-safe-bottom));
+  }
+
+  .pk-add-close-center {
+    bottom: calc(4.25rem + var(--pk-safe-bottom));
+  }
+}
