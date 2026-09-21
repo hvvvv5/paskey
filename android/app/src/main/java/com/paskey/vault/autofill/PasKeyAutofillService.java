@@ -40,6 +40,7 @@ import com.paskey.vault.R;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -72,6 +73,7 @@ public class PasKeyAutofillService extends AutofillService {
     private AutofillId emailId;
     private AutofillId usernameId;
     private AutofillId passwordId;
+    private final ArrayList<AutofillId> newPasswordIds = new ArrayList<>();
     private AutofillId phoneId;
     private AutofillId cardholderId;
     private AutofillId cardNumberId;
@@ -121,6 +123,14 @@ public class PasKeyAutofillService extends AutofillService {
         FillResponse.Builder response = new FillResponse.Builder();
         int datasetCount = 0;
         String selectorMode = cardForm ? "cards" : "logins";
+
+        if (loginForm && !newPasswordIds.isEmpty()) {
+            Dataset generator = buildGeneratedPasswordDataset(request, datasetCount);
+            if (generator != null) {
+                response.addDataset(generator);
+                datasetCount++;
+            }
+        }
 
         for (int index = 0; index < items.length(); index++) {
             JSONObject item = items.optJSONObject(index);
@@ -199,6 +209,7 @@ public class PasKeyAutofillService extends AutofillService {
         emailId = null;
         usernameId = null;
         passwordId = null;
+        newPasswordIds.clear();
         phoneId = null;
         cardholderId = null;
         cardNumberId = null;
@@ -283,6 +294,71 @@ public class PasKeyAutofillService extends AutofillService {
             hasField |= associate(dataset, passwordId, presentation);
         }
         return hasField ? dataset.build() : null;
+    }
+
+    @SuppressWarnings("deprecation")
+    private Dataset buildGeneratedPasswordDataset(FillRequest request, int inlineIndex) {
+        if (newPasswordIds.isEmpty()) return null;
+
+        String generated = generateStrongPassword(20);
+        RemoteViews presentation = presentationFor(
+                "Generate strong password",
+                "PasKey · 20 characters"
+        );
+
+        Dataset.Builder dataset = new Dataset.Builder(presentation);
+        boolean hasField = false;
+        for (AutofillId id : newPasswordIds) {
+            if (id == null) continue;
+            dataset.setValue(id, AutofillValue.forText(generated), presentation);
+            hasField = true;
+        }
+
+        if (!hasField) return null;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            InlineSupport.applyText(
+                    this,
+                    dataset,
+                    request,
+                    "Generate strong password",
+                    "PasKey · 20 characters",
+                    inlineIndex,
+                    43000 + (inlineIndex % 1000)
+            );
+        }
+
+        return dataset.build();
+    }
+
+    private String generateStrongPassword(int length) {
+        final String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        final String lower = "abcdefghijkmnopqrstuvwxyz";
+        final String digits = "23456789";
+        final String symbols = "!@#$%^&*?-_=+";
+        final String all = upper + lower + digits + symbols;
+
+        SecureRandom random = new SecureRandom();
+        ArrayList<Character> chars = new ArrayList<>();
+        chars.add(upper.charAt(random.nextInt(upper.length())));
+        chars.add(lower.charAt(random.nextInt(lower.length())));
+        chars.add(digits.charAt(random.nextInt(digits.length())));
+        chars.add(symbols.charAt(random.nextInt(symbols.length())));
+
+        while (chars.size() < Math.max(12, length)) {
+            chars.add(all.charAt(random.nextInt(all.length())));
+        }
+
+        for (int i = chars.size() - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            Character tmp = chars.get(i);
+            chars.set(i, chars.get(j));
+            chars.set(j, tmp);
+        }
+
+        StringBuilder password = new StringBuilder(chars.size());
+        for (Character ch : chars) password.append(ch.charValue());
+        return password.toString();
     }
 
     @SuppressWarnings("deprecation")
@@ -599,6 +675,11 @@ public class PasKeyAutofillService extends AutofillService {
 
             String value = text.toString().toLowerCase(Locale.ROOT);
             int fieldType = classifyField(officialHints, value);
+            boolean newPasswordField = fieldType == FIELD_PASSWORD
+                    && isNewPasswordField(officialHints, value);
+            if (newPasswordField && !newPasswordIds.contains(id)) {
+                newPasswordIds.add(id);
+            }
             if (cardNumberId == null && containsAny(value, "creditcardnumber", "credit_card_number", "cardnumber", "card_number", "cc-number", "cc_number")) {
                 cardNumberId = id;
             } else if (cardExpiryId == null && containsAny(value, "cc-exp", "expiry", "expiration", "exp-date", "exp_date", "mm/yy", "mm/yyyy")) {
@@ -652,6 +733,43 @@ public class PasKeyAutofillService extends AutofillService {
             return FIELD_USERNAME;
         }
         return FIELD_NONE;
+    }
+
+    private boolean isNewPasswordField(String[] officialHints, String fallbackText) {
+        if (officialHints != null) {
+            for (String hint : officialHints) {
+                String normalized = normalizeHint(hint);
+                if (containsAny(
+                        normalized,
+                        "newpassword",
+                        "passwordnew",
+                        "confirmpassword",
+                        "passwordconfirmation")) {
+                    return true;
+                }
+            }
+        }
+
+        String value = fallbackText == null ? "" : fallbackText.toLowerCase(Locale.ROOT);
+        return containsAny(
+                value,
+                "new-password",
+                "new_password",
+                "new password",
+                "newpassword",
+                "create password",
+                "choose password",
+                "set password",
+                "confirm-password",
+                "confirm_password",
+                "confirm password",
+                "confirmpassword",
+                "password confirmation",
+                "password_confirmation",
+                "repeat password",
+                "retype password",
+                "كلمة مرور جديدة",
+                "تأكيد كلمة المرور");
     }
 
     private String normalizeHint(String value) {
