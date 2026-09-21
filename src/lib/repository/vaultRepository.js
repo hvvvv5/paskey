@@ -209,24 +209,28 @@ export function createVaultRepository({ enc, dec }) {
     const existingIndex = rows.findIndex((row) => {
       if (pendingId && pendingIdOf(row) === pendingId) return true;
       const rowIdentity = String(row.email || row.phone || row.username || '').trim().toLowerCase();
-      const sameTarget = website
-        ? String(row.website || '').trim().toLowerCase() === website
-        : applicationIdentifier && String(row.applicationIdentifier || '').trim() === applicationIdentifier;
+      const rowWebsites = String(row.website || '').split(/[,;\n]/).map((v) => v.trim().toLowerCase()).filter(Boolean);
+      const rowPackages = String(row.applicationIdentifier || '').split(/[,;\n]/).map((v) => v.trim()).filter(Boolean);
+      const sameTarget = website ? rowWebsites.includes(website) : Boolean(applicationIdentifier && rowPackages.includes(applicationIdentifier));
       return Boolean(identity && rowIdentity === identity && sameTarget);
     });
 
-    const payload = await buildPayload(cat, values, enc);
     if (existingIndex >= 0) {
-      rows[existingIndex] = {
-        ...rows[existingIndex],
-        ...payload,
-        updated_date: now(),
-        ...(pendingId ? { _paskeyPendingId: pendingId } : {}),
-      };
+      const previous = rows[existingIndex];
+      const next = { ...previous, updated_date: now() };
+      for (const field of ['title', 'website', 'applicationIdentifier', 'username', 'email', 'phone']) {
+        const value = values?.[field];
+        if (value !== undefined && value !== null && String(value).trim()) next[field] = value;
+      }
+      if (values?.password) next.password = await enc(values.password);
+      if (values?.avatar) next.avatar = await enc(values.avatar);
+      if (pendingId) next._paskeyPendingId = pendingId;
+      rows[existingIndex] = next;
       await writeRows(cat.entity, rows);
-      return { id: rows[existingIndex].id, existing: true, updated: true };
+      return { id: next.id, existing: true, updated: true };
     }
 
+    const payload = await buildPayload(cat, values, enc);
     const row = {
       id: uid(),
       created_date: now(),
