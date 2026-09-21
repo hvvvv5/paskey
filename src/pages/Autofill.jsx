@@ -20,7 +20,7 @@ import Logo from '@/components/paskey/Logo';
 import { useI18n } from '@/lib/i18n';
 import { getLoginProfile, isAutofillLogin } from '@/lib/loginProfiles';
 import { importAndSyncAutofillVault, syncAutofillVault } from '@/lib/native/syncAutofillVault';
-import { getAutofillStatus, requestEnableAutofill } from '@/lib/native/PasKeySecurity';
+import { getAutofillStatus, openChromeAutofillSettings, requestEnableAutofill } from '@/lib/native/PasKeySecurity';
 import {
   isCompleteAutofillLogin,
   normalizeAutofillRecord,
@@ -264,6 +264,16 @@ export default function Autofill() {
     }
   };
 
+  const openChromeSettings = async () => {
+    setError('');
+    try {
+      await openChromeAutofillSettings();
+      setNotice(t('In Chrome, enable Autofill using another service, then return to your login page.'));
+    } catch {
+      setError(t('Could not open Chrome Autofill settings.'));
+    }
+  };
+
   const importSavedLogins = async () => {
     if (!repo || importing) return;
     setImporting(true);
@@ -330,6 +340,18 @@ export default function Autofill() {
           </button>
         </section>
       ) : null}
+
+      <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p className="font-medium text-white">{t('Using PasKey in Chrome?')}</p>
+        <p className="mt-1 text-sm text-[#AEB4BE]">{t('Chrome must allow Autofill using another service before PasKey can save or suggest website logins.')}</p>
+        <button
+          type="button"
+          onClick={openChromeSettings}
+          className="mt-3 w-full rounded-xl border border-[#C8A96B]/45 px-4 py-3 text-sm font-medium text-[#C8A96B]"
+        >
+          {t('Open Chrome Autofill settings')}
+        </button>
+      </section>
 
       <section className="mt-6 rounded-2xl border border-[#C8A96B]/30 bg-gradient-to-br from-[#C8A96B]/10 to-white/[0.03] p-4">
         <div className="flex gap-3">
