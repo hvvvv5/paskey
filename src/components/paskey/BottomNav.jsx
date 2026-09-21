@@ -16,7 +16,7 @@ export default function BottomNav() {
   return (
     <nav
       aria-label={t("Main navigation")}
-      className="pk-safe-bottom-nav pk-no-select fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070707]/95 shadow-[0_-12px_32px_rgba(0,0,0,0.35)] backdrop-blur"
+      className="pk-safe-bottom-nav pk-no-select fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070707] shadow-[0_-6px_18px_rgba(0,0,0,0.24)]"
     >
       <div className="mx-auto grid h-[4.5rem] max-w-xl grid-cols-5">
         {ITEMS.map(({ to, label, Icon }) => (
