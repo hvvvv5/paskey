@@ -49,7 +49,7 @@ export default function DeleteAccountDialog({ open, onClose }) {
                 <h2 className="font-heading text-lg text-white">{t('Are you absolutely sure?')}</h2>
                 <p className="mt-2 text-sm text-[#AEB4BE]">{t('Type')} <span className="font-mono text-white">ERASE</span> {t('to confirm.')}</p>
                 <input type="text" value={typed} onChange={(event) => setTyped(event.target.value)} autoComplete="off" aria-label={t('Type ERASE to confirm')} className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-red-500" />
-                <div className="mt-5 flex gap-3"><button type="button" onClick={onClose} disabled={busy} className="flex-1 rounded-xl border border-white/10 py-3 text-sm text-[#AEB4BE]">Cancel</button><button type="button" onClick={doErase} disabled={busy || typed !== 'ERASE'} className="flex-1 rounded-xl bg-red-500/90 py-3 text-sm font-medium text-white disabled:opacity-50">{busy ? t('Erasing…') : t('Erase forever')}</button></div>
+                <div className="mt-5 flex gap-3"><button type="button" onClick={onClose} disabled={busy} className="flex-1 rounded-xl border border-white/10 py-3 text-sm text-[#AEB4BE]">{t('Cancel')}</button><button type="button" onClick={doErase} disabled={busy || typed !== 'ERASE'} className="flex-1 rounded-xl bg-red-500/90 py-3 text-sm font-medium text-white disabled:opacity-50">{busy ? t('Erasing…') : t('Erase forever')}</button></div>
               </>
             )}
           </motion.div>
