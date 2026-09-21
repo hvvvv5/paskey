@@ -19,7 +19,7 @@ function Header() {
       className="sticky top-0 z-20 flex items-center gap-3 border-b border-white/10 bg-[#070707]/95 px-5 pb-4 backdrop-blur"
       style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
     >
-      <Logo size={28} />
+      <span className="pk-logo-badge flex h-9 w-9 shrink-0 items-center justify-center rounded-full" aria-hidden="true"><Logo size={24} /></span>
       <span className="pk-no-select font-heading text-sm tracking-[0.34em] text-white">PASKEY</span>
       <div className="ml-auto flex items-center gap-1">
         <button type="button" aria-label={t("Search vault")} onClick={() => navigate('/?focus=search')} className="rounded-lg p-2 text-[#AEB4BE] hover:text-white active:scale-95">
