@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { generatePassword, scorePassword } from '@/lib/password';
 import CopyButton from '@/components/paskey/CopyButton';
+import { useI18n } from '@/lib/i18n';
 
 const TOGGLES = [
   ['uppercase', 'Uppercase (A–Z)'],
@@ -11,6 +12,7 @@ const TOGGLES = [
 ];
 
 export default function Generator() {
+  const { t } = useI18n();
   const [opts, setOpts] = useState({ length: 20, uppercase: true, lowercase: true, numbers: true, symbols: true });
   const [value, setValue] = useState('');
   const { label, score } = scorePassword(value);
@@ -19,8 +21,8 @@ export default function Generator() {
 
   return (
     <div className="px-5 pb-32 pt-6">
-      <h1 className="font-heading text-2xl text-white">Password Generator</h1>
-      <p className="mt-1 text-sm text-[#AEB4BE]">Generated locally with a cryptographically secure RNG.</p>
+      <h1 className="font-heading text-2xl text-white">{t('Password Generator')}</h1>
+      <p className="mt-1 text-sm text-[#AEB4BE]">{t('Generated locally with a cryptographically secure RNG.')}</p>
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
         <p className="min-h-14 break-all font-mono text-lg leading-relaxed text-white">{value}</p>
@@ -48,7 +50,7 @@ export default function Generator() {
         <div className="mt-5 space-y-3">
           {TOGGLES.map(([k, lbl]) => (
             <label key={k} className="flex items-center justify-between text-sm text-[#AEB4BE]">
-              {lbl}
+              {t(lbl)}
               <input
                 type="checkbox" checked={opts[k]} onChange={(e) => setOpts({ ...opts, [k]: e.target.checked })}
                 className="h-5 w-5 accent-[#C8A96B]"
