@@ -20,6 +20,7 @@ import Logo from '@/components/paskey/Logo';
 import { useI18n } from '@/lib/i18n';
 import { getLoginProfile, isAutofillLogin } from '@/lib/loginProfiles';
 import { importAndSyncAutofillVault, syncAutofillVault } from '@/lib/native/syncAutofillVault';
+import { getAutofillStatus, requestEnableAutofill } from '@/lib/native/PasKeySecurity';
 import {
   isCompleteAutofillLogin,
   normalizeAutofillRecord,
@@ -206,6 +207,8 @@ export default function Autofill() {
   const [addOpen, setAddOpen] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [autofillStatus, setAutofillStatus] = useState({ supported: true, enabled: null });
+  const [openingAutofillSettings, setOpeningAutofillSettings] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!repo) {
@@ -225,6 +228,41 @@ export default function Autofill() {
       setLoading(false);
     });
   }, [refresh]);
+
+  useEffect(() => {
+    let active = true;
+    const readStatus = async () => {
+      const status = await getAutofillStatus();
+      if (active) setAutofillStatus(status);
+    };
+    readStatus();
+
+    const onFocus = () => { readStatus(); };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') readStatus();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
+  const enableAutofill = async () => {
+    if (openingAutofillSettings) return;
+    setOpeningAutofillSettings(true);
+    setError('');
+    try {
+      await requestEnableAutofill();
+      setNotice(t('Choose PasKey as your Android Autofill service, then return here.'));
+    } catch {
+      setError(t('Could not open Android Autofill settings.'));
+    } finally {
+      setOpeningAutofillSettings(false);
+    }
+  };
 
   const importSavedLogins = async () => {
     if (!repo || importing) return;
@@ -277,6 +315,21 @@ export default function Autofill() {
       </div>
 
       {addOpen ? <ManualLoginForm repo={repo} dec={dec} onClose={() => setAddOpen(false)} onSaved={refresh} /> : null}
+
+      {autofillStatus.enabled === false ? (
+        <section className="mt-6 rounded-2xl border border-[#C8A96B]/35 bg-[#C8A96B]/5 p-4">
+          <p className="font-medium text-white">{t('Android Autofill is not enabled for PasKey')}</p>
+          <p className="mt-1 text-sm text-[#AEB4BE]">{t('Enable PasKey once in Android settings so save and login suggestions can appear in apps and websites.')}</p>
+          <button
+            type="button"
+            onClick={enableAutofill}
+            disabled={openingAutofillSettings}
+            className="mt-4 w-full rounded-xl bg-[#C8A96B] px-4 py-3 text-sm font-medium text-[#070707] disabled:opacity-60"
+          >
+            {openingAutofillSettings ? t('Opening Android settings…') : t('Enable PasKey Autofill')}
+          </button>
+        </section>
+      ) : null}
 
       <section className="mt-6 rounded-2xl border border-[#C8A96B]/30 bg-gradient-to-br from-[#C8A96B]/10 to-white/[0.03] p-4">
         <div className="flex gap-3">
