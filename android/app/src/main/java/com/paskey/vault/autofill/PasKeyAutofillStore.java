@@ -93,6 +93,85 @@ public final class PasKeyAutofillStore {
         );
     }
 
+
+    /**
+     * Returns the unlocked-vault Autofill cache plus credentials the user has
+     * just approved through Android's save UI. Pending saves remain encrypted
+     * and become immediately usable for Autofill before they are imported into
+     * the main PasKey vault.
+     */
+    public static JSONArray loadAvailable(Context context) throws Exception {
+        JSONArray primary = load(context);
+        JSONArray pending = loadPending(context);
+        JSONArray available = new JSONArray();
+
+        appendUnique(available, primary);
+        appendUnique(available, pending);
+        return available;
+    }
+
+    private static void appendUnique(JSONArray destination, JSONArray source) {
+        for (int i = 0; i < source.length(); i++) {
+            org.json.JSONObject candidate = source.optJSONObject(i);
+            if (candidate == null || containsEquivalent(destination, candidate)) {
+                continue;
+            }
+            destination.put(candidate);
+        }
+    }
+
+    private static boolean containsEquivalent(JSONArray items, org.json.JSONObject candidate) {
+        boolean candidateCard = "cards".equals(candidate.optString("category", ""));
+        String candidateIdentity = firstNonEmpty(
+                candidate.optString("email", ""),
+                candidate.optString("phone", ""),
+                candidate.optString("username", "")
+        );
+
+        for (int i = 0; i < items.length(); i++) {
+            org.json.JSONObject item = items.optJSONObject(i);
+            if (item == null) continue;
+
+            boolean itemCard = "cards".equals(item.optString("category", ""));
+            if (candidateCard != itemCard) continue;
+
+            if (candidateCard) {
+                if (candidate.optString("cardNumber", "").equals(item.optString("cardNumber", ""))
+                        && candidate.optString("expiry", "").equals(item.optString("expiry", ""))
+                        && candidate.optString("cardholder", "").equals(item.optString("cardholder", ""))) {
+                    return true;
+                }
+                continue;
+            }
+
+            String itemIdentity = firstNonEmpty(
+                    item.optString("email", ""),
+                    item.optString("phone", ""),
+                    item.optString("username", "")
+            );
+
+            boolean sameTarget =
+                    PasKeyAutofillMatcher.normalizeHost(candidate.optString("website", ""))
+                            .equals(PasKeyAutofillMatcher.normalizeHost(item.optString("website", "")))
+                    && candidate.optString("applicationIdentifier", "").trim()
+                            .equals(item.optString("applicationIdentifier", "").trim());
+
+            if (sameTarget
+                    && candidateIdentity.equals(itemIdentity)
+                    && candidate.optString("password", "").equals(item.optString("password", ""))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String firstNonEmpty(String... values) {
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) return value.trim();
+        }
+        return "";
+    }
+
     public static void savePending(Context context, JSONArray items) throws Exception {
         SecretKey key = PasKeyKeyStore.getOrCreateKey();
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
