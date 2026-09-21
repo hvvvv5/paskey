@@ -163,7 +163,15 @@ public class PasKeyAutofillService extends AutofillService {
             }
         }
 
-        SaveInfo saveInfo = buildSaveInfo(effectiveIdentityId, effectivePasswordId);
+        String effectiveIdentityKind = clientState.getString(
+                STATE_IDENTITY_KIND,
+                preferredIdentityKind()
+        );
+        SaveInfo saveInfo = buildSaveInfo(
+                effectiveIdentityId,
+                effectivePasswordId,
+                effectiveIdentityKind
+        );
         if (saveInfo != null) response.setSaveInfo(saveInfo);
         response.setClientState(clientState);
         callback.onSuccess(datasetCount == 0 && saveInfo == null ? null : response.build());
@@ -517,14 +525,19 @@ public class PasKeyAutofillService extends AutofillService {
         return state;
     }
 
-    private SaveInfo buildSaveInfo(AutofillId identityId, AutofillId savedPasswordId) {
+    private SaveInfo buildSaveInfo(
+            AutofillId identityId,
+            AutofillId savedPasswordId,
+            String identityKind) {
         if (identityId == null && savedPasswordId == null) return null;
 
         ArrayList<AutofillId> requiredIds = new ArrayList<>();
         int dataType = 0;
         if (identityId != null) {
             requiredIds.add(identityId);
-            dataType |= SaveInfo.SAVE_DATA_TYPE_USERNAME;
+            dataType |= "email".equals(identityKind)
+                    ? SaveInfo.SAVE_DATA_TYPE_EMAIL_ADDRESS
+                    : SaveInfo.SAVE_DATA_TYPE_USERNAME;
         }
         if (savedPasswordId != null) {
             requiredIds.add(savedPasswordId);
