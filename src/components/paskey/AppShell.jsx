@@ -16,8 +16,7 @@ function Header() {
   const { t } = useI18n();
   return (
     <header
-      className="sticky top-0 z-20 flex items-center gap-3 border-b border-white/10 bg-[#070707]/95 px-5 pb-4 backdrop-blur"
-      style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+      className="pk-safe-header sticky top-0 z-20 flex items-center gap-3 border-b border-white/10 bg-[#070707]/95 px-5 pb-4 backdrop-blur"
     >
       <span className="pk-logo-badge flex h-9 w-9 shrink-0 items-center justify-center rounded-full" aria-hidden="true"><Logo size={24} /></span>
       <span className="pk-no-select font-heading text-sm tracking-[0.34em] text-white">PASKEY</span>
