@@ -322,3 +322,116 @@ button,
   -webkit-user-select: none;
   user-select: none;
 }
+
+
+/* PasKey themed controls: keep menus, buttons, and form surfaces coherent
+   instead of relying on broad utility-class recoloring. */
+:root {
+  --pk-control-bg: #111111;
+  --pk-control-raised: #171717;
+  --pk-control-border: rgb(255 255 255 / 12%);
+  --pk-control-selected: rgb(200 169 107 / 14%);
+}
+
+html[data-pk-theme='cream'] {
+  --pk-control-bg: #FFF9F0;
+  --pk-control-raised: #F6E8D0;
+  --pk-control-border: rgb(182 129 54 / 34%);
+  --pk-control-selected: rgb(182 129 54 / 14%);
+}
+
+html[data-pk-theme='pro'] {
+  --pk-control-bg: #041C1B;
+  --pk-control-raised: #062B2A;
+  --pk-control-border: rgb(0 169 152 / 58%);
+  --pk-control-selected: rgb(0 217 192 / 14%);
+}
+
+.pk-themed-control,
+.pk-settings-select-trigger {
+  border-color: var(--pk-control-border) !important;
+  background: var(--pk-control-bg) !important;
+  color: var(--pk-text) !important;
+}
+
+.pk-themed-control:focus,
+.pk-settings-select-trigger:focus-visible {
+  border-color: var(--pk-accent) !important;
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 2px var(--pk-control-selected);
+}
+
+.pk-settings-select-popover,
+.pk-settings-sheet {
+  border-color: var(--pk-control-border) !important;
+  background: var(--pk-control-bg) !important;
+  color: var(--pk-text) !important;
+}
+
+.pk-settings-sheet {
+  border-top-left-radius: 1.25rem !important;
+  border-top-right-radius: 1.25rem !important;
+  box-shadow: 0 -18px 48px rgb(0 0 0 / 20%);
+}
+
+.pk-settings-sheet-title {
+  color: var(--pk-muted) !important;
+}
+
+.pk-settings-options {
+  border-color: var(--pk-control-border) !important;
+  background: var(--pk-control-raised) !important;
+}
+
+.pk-settings-option {
+  border-bottom: 1px solid var(--pk-control-border);
+  background: transparent;
+  color: var(--pk-text) !important;
+  text-align: start;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.pk-settings-option:last-child {
+  border-bottom: 0;
+}
+
+.pk-settings-option:active,
+.pk-settings-option:hover {
+  background: var(--pk-control-selected);
+}
+
+.pk-settings-option.is-active {
+  background: var(--pk-control-selected);
+  color: var(--pk-text) !important;
+  font-weight: 600;
+}
+
+.pk-settings-check {
+  color: var(--pk-accent) !important;
+}
+
+.pk-settings-select-item {
+  color: var(--pk-text) !important;
+}
+
+.pk-settings-select-item:focus,
+.pk-settings-select-item[data-highlighted],
+.pk-settings-select-item[data-state='checked'] {
+  background: var(--pk-control-selected) !important;
+  color: var(--pk-text) !important;
+}
+
+/* Brand mark stays intentionally dark in every visual theme. The circular
+   badge prevents the shield from appearing as a stray square on light themes. */
+.pk-logo-badge {
+  overflow: hidden;
+  border: 1px solid rgb(200 169 107 / 42%);
+  background: #070707 !important;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 5%) inset,
+    0 6px 16px rgb(0 0 0 / 16%);
+}
+
+.pk-logo-badge > svg {
+  display: block;
+}
