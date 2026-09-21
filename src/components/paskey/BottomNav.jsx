@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Shield, KeyRound, Wand2, ShieldCheck, Settings as SettingsIcon } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 const ITEMS = [
   { to: '/', label: 'Vault', Icon: Shield },
@@ -11,9 +12,10 @@ const ITEMS = [
 ];
 
 export default function BottomNav() {
+  const { t } = useI18n();
   return (
     <nav
-      aria-label="Main navigation"
+      aria-label={t("Main navigation")}
       className="pk-no-select fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070707]/95 shadow-[0_-12px_32px_rgba(0,0,0,0.35)] backdrop-blur"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
@@ -34,7 +36,7 @@ export default function BottomNav() {
                   aria-hidden="true"
                 />
                 <span style={{ color: isActive ? 'var(--pk-accent)' : 'var(--pk-muted)' }}>
-                  {label}
+                  {t(label)}
                   {isActive ? <span className="sr-only"> (current)</span> : null}
                 </span>
               </>
