@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { VaultProvider, useVault } from './VaultContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomNav from './BottomNav';
@@ -12,19 +11,13 @@ import { I18nProvider, useI18n } from '@/lib/i18n';
 
 
 function Header() {
-  const navigate = useNavigate();
-  const { t } = useI18n();
   return (
     <header
       className="pk-safe-header sticky top-0 z-20 flex items-center gap-3 border-b border-white/10 bg-[#070707]/95 px-5 pb-4 backdrop-blur"
     >
       <span className="pk-logo-badge flex h-9 w-9 shrink-0 items-center justify-center rounded-full" aria-hidden="true"><Logo size={24} /></span>
       <span className="pk-no-select font-heading text-sm tracking-[0.34em] text-white">PASKEY</span>
-      <div className="ml-auto flex items-center gap-1">
-        <button type="button" aria-label={t("Search vault")} onClick={() => navigate('/?focus=search')} className="rounded-lg p-2 text-[#AEB4BE] hover:text-white active:scale-95">
-          <Search className="h-5 w-5" strokeWidth={1.6} />
-        </button>
-      </div>
+      <div className="ml-auto" />
     </header>
   );
 }
