@@ -1,0 +1,25 @@
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import { useVault } from '@/components/paskey/VaultContext';
+
+const AR = {
+  'Vault':'الخزنة','Autofill':'الملء التلقائي','Generator':'المولّد','Security':'الأمان','Settings':'الإعدادات',
+  'Search vault':'البحث في الخزنة','Main navigation':'التنقل الرئيسي','Add':'إضافة','Close':'إغلاق','Add item':'إضافة عنصر','Close add menu':'إغلاق قائمة الإضافة','Add item categories':'فئات إضافة العناصر',
+  'Your private space':'مساحتك الخاصة','Search PasKey...':'ابحث في PasKey...','No matching items in your vault.':'لا توجد عناصر مطابقة في خزنتك.','Vault secured':'الخزنة مؤمّنة','items':'عناصر','Open the Security Center for your local audit score.':'افتح مركز الأمان للاطلاع على نتيجة التدقيق المحلية.','Favorites':'المفضلة','Recently updated':'تم تحديثها مؤخرًا','Your vault is empty. Tap + to add your first item.':'خزنتك فارغة. اضغط + لإضافة أول عنصر.',
+  'Passwords':'كلمات المرور','Email & Google':'البريد الإلكتروني وGoogle','Social Media':'وسائل التواصل','Banking':'الخدمات المصرفية','Cards':'البطاقات','Addresses':'العناوين','Secure Notes':'الملاحظات الآمنة',
+  'PasKey preferences':'تفضيلات PasKey','Appearance':'المظهر','Vault':'الخزنة','Privacy & platform':'الخصوصية والمنصة','Danger zone':'منطقة الخطر','Biometric unlock':'فتح القفل بالقياسات الحيوية','Auto lock':'القفل التلقائي','Clear clipboard after':'مسح الحافظة بعد','Screenshot protection':'حماية لقطات الشاشة','Require authentication to reveal secrets':'طلب المصادقة لإظهار البيانات السرية','Color theme':'نمط الألوان','Encrypted backup':'نسخة احتياطية مشفرة','Restore from backup':'استعادة من نسخة احتياطية','Privacy & local data':'الخصوصية والبيانات المحلية','Erase local vault':'مسح الخزنة المحلية','Export':'تصدير','Restore':'استعادة','Language':'اللغة','English':'English','Arabic':'العربية',
+  'Immediately':'فورًا','1 minute':'دقيقة واحدة','5 minutes':'5 دقائق','15 minutes':'15 دقيقة','30 minutes':'30 دقيقة','Never':'أبدًا','15 seconds':'15 ثانية','30 seconds':'30 ثانية','60 seconds':'60 ثانية','System':'النظام','Dark':'داكن','Cream':'كريمي','Pro':'احترافي',
+  'Create your Master Password':'أنشئ كلمة المرور الرئيسية','Master Password':'كلمة المرور الرئيسية','Confirm':'تأكيد','Suggest a strong password':'اقترح كلمة مرور قوية','Create vault':'إنشاء الخزنة','Creating vault…':'جارٍ إنشاء الخزنة…','Welcome back':'مرحبًا بعودتك','Unlock your PasKey vault.':'افتح خزنة PasKey.','Use fingerprint or secure face':'استخدم البصمة أو الوجه الآمن','Waiting for Android…':'بانتظار Android…','Unlock with Master Password':'فتح بكلمة المرور الرئيسية','Unlocking…':'جارٍ فتح القفل…',
+  'Password Generator':'مولّد كلمات المرور','Generated locally with a cryptographically secure RNG.':'يتم التوليد محليًا باستخدام مولّد عشوائي آمن تشفيريًا.','Copy':'نسخ','Copied':'تم النسخ','Regenerate':'إعادة التوليد','Length':'الطول','Uppercase (A–Z)':'أحرف كبيرة (A–Z)','Lowercase (a–z)':'أحرف صغيرة (a–z)','Numbers (0–9)':'أرقام (0–9)','Symbols (!@#$)':'رموز (!@#$)',
+  'Saved Logins':'بيانات الدخول المحفوظة','Store and manage sign-ins for websites and Android apps.':'احفظ وأدر بيانات الدخول للمواقع وتطبيقات Android.','Save':'حفظ','Search saved logins':'البحث في بيانات الدخول المحفوظة','Passwords hidden':'كلمات المرور مخفية','No saved logins yet':'لا توجد بيانات دخول محفوظة بعد','Save a login':'حفظ بيانات دخول','Website':'موقع ويب','Android app':'تطبيق Android','Email':'البريد الإلكتروني','Username':'اسم المستخدم','Phone':'الهاتف','Password':'كلمة المرور','Identity':'الهوية','Identity type':'نوع الهوية','Target type':'نوع الهدف','Domain':'النطاق','Package name':'اسم الحزمة','Save login':'حفظ بيانات الدخول','Saving…':'جارٍ الحفظ…',
+  'Back':'رجوع','Edit item':'تعديل العنصر','Delete item':'حذف العنصر','Toggle favorite':'تبديل المفضلة','Open website':'فتح الموقع','Cancel':'إلغاء','Delete':'حذف','Favorite':'مفضلة','New':'جديد','Edit':'تعديل','Save to vault':'حفظ في الخزنة','Encrypting…':'جارٍ التشفير…','Generate password':'توليد كلمة مرور','Unknown category.':'فئة غير معروفة.','Decrypting…':'جارٍ فك التشفير…',
+  'Change':'تغيير','Update Master Password':'تحديث كلمة المرور الرئيسية','Current Master Password':'كلمة المرور الرئيسية الحالية','New Master Password':'كلمة المرور الرئيسية الجديدة','Strength:':'القوة:','Erase local vault?':'مسح الخزنة المحلية؟','Continue':'متابعة','Are you absolutely sure?':'هل أنت متأكد تمامًا؟','Erase forever':'مسح نهائي','Erasing…':'جارٍ المسح…','Show':'إظهار','Hide':'إخفاء',
+};
+const Ctx=createContext({language:'en',t:(s)=>s});
+export function I18nProvider({children}) {
+ const {settings,updateSettings}=useVault();
+ const language=settings.language==='ar'?'ar':'en';
+ useEffect(()=>{document.documentElement.lang=language;document.documentElement.dir=language==='ar'?'rtl':'ltr';},[language]);
+ const value=useMemo(()=>({language,setLanguage:(v)=>updateSettings({language:v}),t:(s)=>language==='ar'?(AR[s]||s):s}),[language,updateSettings]);
+ return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+export const useI18n=()=>useContext(Ctx);
