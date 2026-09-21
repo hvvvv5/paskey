@@ -61,7 +61,7 @@ public class AutofillAuthActivity extends FragmentActivity {
 
     private void showPicker() {
         try {
-            JSONArray items = PasKeyAutofillStore.load(this);
+            JSONArray items = PasKeyAutofillStore.loadAvailable(this);
             boolean cards = "cards".equals(getIntent().getStringExtra("selectorMode"));
             ArrayList<Integer> indexes = new ArrayList<>();
             ArrayList<String> labels = new ArrayList<>();
@@ -120,7 +120,7 @@ public class AutofillAuthActivity extends FragmentActivity {
             AutofillId cardExpiryId = source.getParcelableExtra("cardExpiryId");
             AutofillId cardCvvId = source.getParcelableExtra("cardCvvId");
 
-            JSONArray items = PasKeyAutofillStore.load(this);
+            JSONArray items = PasKeyAutofillStore.loadAvailable(this);
             JSONObject item = itemIndex >= 0 && itemIndex < items.length() ? items.optJSONObject(itemIndex) : null;
             if (item == null) {
                 cancel();
