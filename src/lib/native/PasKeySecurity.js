@@ -18,6 +18,10 @@ export async function requestEnableAutofill() {
   return PasKeySecurity.requestEnableAutofill();
 }
 
+export async function openChromeAutofillSettings() {
+  return PasKeySecurity.openChromeAutofillSettings();
+}
+
 export async function getPendingAutofillSaves() {
   const result = await PasKeySecurity.getPendingAutofillSaves();
   return JSON.parse(result.json || '[]');
