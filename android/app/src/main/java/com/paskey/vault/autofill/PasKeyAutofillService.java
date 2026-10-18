@@ -190,7 +190,8 @@ public class PasKeyAutofillService extends AutofillService {
         SaveInfo saveInfo = buildSaveInfo(
                 effectiveIdentityId,
                 effectivePasswordId,
-                effectiveIdentityKind
+                effectiveIdentityKind,
+                clientState
         );
         if (saveInfo != null) response.setSaveInfo(saveInfo);
         response.setClientState(clientState);
@@ -202,6 +203,13 @@ public class PasKeyAutofillService extends AutofillService {
         if (contexts == null) return;
         for (FillContext context : contexts) {
             if (context != null) inspectStructure(context.getStructure());
+        }
+
+        if (preferredIdentityId() == null
+                && passwordId != null
+                && lastGenericIdentityCandidate != null) {
+            usernameId = lastGenericIdentityCandidate;
+            addUnique(usernameIds, lastGenericIdentityCandidate);
         }
     }
 
@@ -688,7 +696,8 @@ public class PasKeyAutofillService extends AutofillService {
     private SaveInfo buildSaveInfo(
             AutofillId identityId,
             AutofillId savedPasswordId,
-            String identityKind) {
+            String identityKind,
+            Bundle clientState) {
         if (identityId == null && savedPasswordId == null) return null;
 
         ArrayList<AutofillId> requiredIds = new ArrayList<>();
@@ -718,7 +727,7 @@ public class PasKeyAutofillService extends AutofillService {
             builder.setOptionalIds(optionalIds.toArray(new AutofillId[0]));
         }
 
-        String description = saveTargetDescription();
+        String description = saveTargetDescription(clientState);
         if (!description.isEmpty()) {
             builder.setDescription(description);
         }
@@ -744,13 +753,31 @@ public class PasKeyAutofillService extends AutofillService {
         }
     }
 
-    private String saveTargetDescription() {
-        if (!targetWebDomain.isEmpty()) {
-            String scheme = targetWebScheme.isEmpty() ? "https" : targetWebScheme;
-            return "PasKey · " + scheme + "://" + targetWebDomain;
+    private String saveTargetDescription(Bundle clientState) {
+        String webDomain = targetWebDomain;
+        String webScheme = targetWebScheme;
+        String packageName = targetPackage;
+
+        if (clientState != null) {
+            if (webDomain.isEmpty()) {
+                webDomain = PasKeyAutofillMatcher.normalizeHost(
+                        clientState.getString(STATE_WEB_DOMAIN, "")
+                );
+            }
+            if (webScheme.isEmpty()) {
+                webScheme = clientState.getString(STATE_WEB_SCHEME, "");
+            }
+            if (packageName.isEmpty()) {
+                packageName = clientState.getString(STATE_PACKAGE, "");
+            }
         }
-        if (!targetPackage.isEmpty()) {
-            return "PasKey · " + applicationLabel(targetPackage);
+
+        if (!webDomain.isEmpty()) {
+            String scheme = webScheme.isEmpty() ? "https" : webScheme;
+            return "PasKey · " + scheme + "://" + webDomain;
+        }
+        if (!packageName.isEmpty()) {
+            return "PasKey · " + applicationLabel(packageName);
         }
         return "";
     }
