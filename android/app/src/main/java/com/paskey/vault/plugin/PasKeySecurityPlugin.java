@@ -9,15 +9,11 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
-import android.os.ParcelFileDescriptor;
-import android.os.CancellationSignal;
-import android.os.Bundle;
 import android.provider.Settings;
 import android.provider.MediaStore;
-import android.print.PrintDocumentInfo;
+import android.print.PrintManager;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintAttributes;
-import android.print.PageRange;
 import android.view.autofill.AutofillManager;
 import android.content.SharedPreferences;
 import android.os.Handler;
@@ -50,7 +46,6 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -432,7 +427,7 @@ public class PasKeySecurityPlugin extends Plugin {
 
         String safeName = filename.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
         if (!safeName.toLowerCase().endsWith(".pdf")) safeName += ".pdf";
-        final String outputName = safeName;
+        final String jobName = safeName.substring(0, safeName.length() - 4);
 
         activity.runOnUiThread(() -> {
             WebView webView = new WebView(activity);
@@ -450,6 +445,17 @@ public class PasKeySecurityPlugin extends Plugin {
                         if (!finished.compareAndSet(false, true)) return;
 
                         try {
+                            PrintManager printManager =
+                                    (PrintManager) activity.getSystemService(Context.PRINT_SERVICE);
+                            if (printManager == null) {
+                                view.destroy();
+                                call.reject("Android print service is unavailable");
+                                return;
+                            }
+
+                            PrintDocumentAdapter adapter =
+                                    view.createPrintDocumentAdapter(jobName);
+
                             PrintAttributes attributes = new PrintAttributes.Builder()
                                     .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
                                     .setResolution(new PrintAttributes.Resolution(
@@ -462,143 +468,25 @@ public class PasKeySecurityPlugin extends Plugin {
                                     .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
                                     .build();
 
-                            final Uri mediaUri;
-                            final ParcelFileDescriptor descriptor;
-                            final String location;
+                            printManager.print(jobName, adapter, attributes);
 
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                ContentResolver resolver = getContext().getContentResolver();
-                                ContentValues values = new ContentValues();
-                                values.put(MediaStore.Downloads.DISPLAY_NAME, outputName);
-                                values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
-                                values.put(
-                                        MediaStore.Downloads.RELATIVE_PATH,
-                                        Environment.DIRECTORY_DOWNLOADS + "/PasKey"
-                                );
-                                values.put(MediaStore.Downloads.IS_PENDING, 1);
+                            JSObject result = new JSObject();
+                            result.put("saved", true);
+                            result.put("filename", safeName);
+                            result.put("location", "Android print dialog");
+                            result.put("printDialog", true);
+                            call.resolve(result);
 
-                                mediaUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                                if (mediaUri == null) {
-                                    throw new IllegalStateException("Android could not create the PDF in Downloads");
-                                }
-                                descriptor = resolver.openFileDescriptor(mediaUri, "w");
-                                if (descriptor == null) {
-                                    resolver.delete(mediaUri, null, null);
-                                    throw new IllegalStateException("Android could not open the PDF destination");
-                                }
-                                location = "Downloads/PasKey/" + outputName;
-                            } else {
-                                mediaUri = null;
-                                File root = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-                                if (root == null) throw new IllegalStateException("Downloads directory unavailable");
-                                File directory = new File(root, "PasKey");
-                                if (!directory.exists() && !directory.mkdirs()) {
-                                    throw new IllegalStateException("Unable to create PasKey PDF directory");
-                                }
-                                File outputFile = new File(directory, outputName);
-                                descriptor = ParcelFileDescriptor.open(
-                                        outputFile,
-                                        ParcelFileDescriptor.MODE_CREATE
-                                                | ParcelFileDescriptor.MODE_TRUNCATE
-                                                | ParcelFileDescriptor.MODE_READ_WRITE
-                                );
-                                location = outputFile.getAbsolutePath();
-                            }
-
-                            PrintDocumentAdapter adapter =
-                                    view.createPrintDocumentAdapter("PasKey Password Report");
-
-                            adapter.onLayout(
-                                    null,
-                                    attributes,
-                                    new CancellationSignal(),
-                                    new PrintDocumentAdapter.LayoutResultCallback() {
-                                        @Override
-                                        public void onLayoutFinished(
-                                                PrintDocumentInfo info,
-                                                boolean changed) {
-                                            adapter.onWrite(
-                                                    new PageRange[]{PageRange.ALL_PAGES},
-                                                    descriptor,
-                                                    new CancellationSignal(),
-                                                    new PrintDocumentAdapter.WriteResultCallback() {
-                                                        @Override
-                                                        public void onWriteFinished(PageRange[] pages) {
-                                                            closeQuietly(descriptor);
-                                                            try {
-                                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                                                                        && mediaUri != null) {
-                                                                    ContentValues ready = new ContentValues();
-                                                                    ready.put(MediaStore.Downloads.IS_PENDING, 0);
-                                                                    getContext().getContentResolver().update(
-                                                                            mediaUri,
-                                                                            ready,
-                                                                            null,
-                                                                            null
-                                                                    );
-                                                                }
-
-                                                                JSObject result = new JSObject();
-                                                                result.put("saved", true);
-                                                                result.put("filename", outputName);
-                                                                result.put("location", location);
-                                                                if (mediaUri != null) {
-                                                                    result.put("uri", mediaUri.toString());
-                                                                }
-                                                                call.resolve(result);
-                                                            } finally {
-                                                                view.destroy();
-                                                            }
-                                                        }
-
-                                                        @Override
-                                                        public void onWriteFailed(CharSequence error) {
-                                                            closeQuietly(descriptor);
-                                                            cleanupPendingPdf(mediaUri);
-                                                            view.destroy();
-                                                            call.reject(
-                                                                    error == null
-                                                                            ? "Unable to write PDF"
-                                                                            : error.toString()
-                                                            );
-                                                        }
-
-                                                        @Override
-                                                        public void onWriteCancelled() {
-                                                            closeQuietly(descriptor);
-                                                            cleanupPendingPdf(mediaUri);
-                                                            view.destroy();
-                                                            call.reject("PDF export was cancelled");
-                                                        }
-                                                    }
-                                            );
-                                        }
-
-                                        @Override
-                                        public void onLayoutFailed(CharSequence error) {
-                                            closeQuietly(descriptor);
-                                            cleanupPendingPdf(mediaUri);
-                                            view.destroy();
-                                            call.reject(
-                                                    error == null
-                                                            ? "Unable to layout PDF"
-                                                            : error.toString()
-                                            );
-                                        }
-
-                                        @Override
-                                        public void onLayoutCancelled() {
-                                            closeQuietly(descriptor);
-                                            cleanupPendingPdf(mediaUri);
-                                            view.destroy();
-                                            call.reject("PDF layout was cancelled");
-                                        }
-                                    },
-                                    new Bundle()
+                            // Do not destroy the WebView immediately: the Android
+                            // print framework still reads from its adapter while
+                            // the system print/save dialog is open.
+                            new Handler(Looper.getMainLooper()).postDelayed(
+                                    view::destroy,
+                                    120000L
                             );
                         } catch (Exception exception) {
                             view.destroy();
-                            call.reject("Unable to create high-quality PDF", exception);
+                            call.reject("Unable to open Android PDF print dialog", exception);
                         }
                     }
                 });
@@ -1037,24 +925,6 @@ public class PasKeySecurityPlugin extends Plugin {
             call.resolve();
         } catch (Exception exception) {
             call.reject("Unable to remove pending Autofill saves", exception);
-        }
-    }
-
-    private void closeQuietly(ParcelFileDescriptor descriptor) {
-        if (descriptor == null) return;
-        try {
-            descriptor.close();
-        } catch (IOException ignored) {
-            // Destination cleanup is handled separately.
-        }
-    }
-
-    private void cleanupPendingPdf(Uri uri) {
-        if (uri == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
-        try {
-            getContext().getContentResolver().delete(uri, null, null);
-        } catch (Exception ignored) {
-            // Best effort cleanup after a failed print job.
         }
     }
 
