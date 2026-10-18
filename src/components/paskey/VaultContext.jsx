@@ -232,6 +232,25 @@ export function VaultProvider({ children }) {
     return true;
   }, [unlock, persist]);
 
+  const verifyMasterPassword = useCallback(async (password) => {
+    const storedConfig = readCfg();
+    if (!storedConfig || !password) return false;
+    try {
+      if (storedConfig.version === 2) {
+        const kek = await deriveKey(password, storedConfig.kekSalt, storedConfig.iterations);
+        const dataKey = await unwrapKey(storedConfig.wMaster, kek);
+        return (await decryptText(dataKey, storedConfig.verifier)) === VERIFY_TOKEN;
+      }
+      if (storedConfig.salt) {
+        const legacyKey = await deriveKey(password, storedConfig.salt, storedConfig.iterations);
+        return (await decryptText(legacyKey, storedConfig.verifier)) === VERIFY_TOKEN;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const enableBiometricUnlock = useCallback(async () => {
     if (!isAndroid()) return { ok: false, message: 'Biometric unlock is available in the Android app only.' };
     if (!keyRef.current) return { ok: false, message: 'Unlock PasKey with the Master Password first.' };
@@ -310,6 +329,7 @@ export function VaultProvider({ children }) {
     disableBiometricUnlock,
     lock,
     changeMaster,
+    verifyMasterPassword,
     enc,
     dec,
     repo,
