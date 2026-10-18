@@ -75,8 +75,8 @@ export default function Settings() {
     setPdfOpen(false);
     setMsg(
       language === 'ar'
-        ? `تم إنشاء تقرير PDF لـ ${result.count} حسابًا.`
-        : `Created a PDF report for ${result.count} accounts.`,
+        ? `تم إنشاء تقرير PDF لـ ${result.count} حسابًا وحفظه في: ${result.location || result.filename}`
+        : `Created a PDF report for ${result.count} accounts and saved it to: ${result.location || result.filename}`,
     );
     return true;
   };
