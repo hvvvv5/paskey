@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 import CopyButton from './CopyButton';
 import { useVault } from './VaultContext';
+import { authenticateSensitiveAction } from '@/lib/native/PasKeySecurity';
 
 export default function SensitiveField({ label, cipher }) {
   const { dec, settings } = useVault();
@@ -9,6 +11,10 @@ export default function SensitiveField({ label, cipher }) {
 
   const reveal = async () => {
     if (value !== null) { setValue(null); return; }
+    if (settings.requireAuthToReveal && Capacitor.getPlatform() === 'android') {
+      const verified = await authenticateSensitiveAction();
+      if (!verified) return;
+    }
     setValue(await dec(cipher));
   };
 
