@@ -60,6 +60,11 @@ export async function hasBiometricVaultKey() {
   }
 }
 
+export async function authenticateSensitiveAction() {
+  const result = await PasKeySecurity.authenticateSensitiveAction();
+  return Boolean(result?.verified);
+}
+
 export async function clearNativeAutofillVault() {
   try { await PasKeySecurity.clearAutofillVault(); } catch { /* browser/no native bridge */ }
 }
