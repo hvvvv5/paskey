@@ -222,7 +222,7 @@ export default function Settings() {
         </button>
       </Row>
       <p className="mt-2 text-[11px] leading-relaxed text-[#AEB4BE]/70">
-        {t('Creates a readable PDF with saved accounts, passwords, important details and website links. Master Password verification is required.')}
+        {t('Creates a readable PDF with saved accounts, passwords, important details and website links. Fingerprint or Master Password verification is required.')}
       </p>
 
       <Row>
