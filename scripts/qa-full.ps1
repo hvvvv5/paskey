@@ -12,7 +12,7 @@ $lines = [System.Collections.Generic.List[string]]::new()
 
 function Add-Result([string]$Name, [string]$State, [string]$Detail = '') {
     $line = ('{0,-34} {1,-6} {2}' -f $Name, $State, $Detail).TrimEnd()
-    $lines.Add($line)
+    $lines.Add($line) | Out-Null
     Write-Host $line
 }
 
@@ -75,7 +75,7 @@ try {
             } | Out-Null
 
             try {
-                $focus = (adb -s $serial shell dumpsys window windows | Select-String -Pattern 'mCurrentFocus|mFocusedApp' | Select-Object -First 3) -join ' '
+                $focus = (adb -s $serial shell dumpsys window | Select-String -Pattern 'mCurrentFocus|mFocusedApp|topResumedActivity' | Select-Object -First 5) -join ' '
                 if ($focus -match [regex]::Escape($Package)) {
                     Add-Result 'Foreground activity' 'PASS' 'PasKey is visible'
                 } else {
@@ -106,10 +106,12 @@ try {
                     $detail = (($crashes | Select-Object -First 3) -join ' | ')
                     Add-Result 'Recent crash scan' 'FAIL' $detail
                     throw "Recent PasKey crash detected"
-                } else {
-                    Add-Result 'Recent crash scan' 'PASS'
                 }
-            } catch { Add-Result 'Recent crash scan' 'WARN' $_.Exception.Message }
+                Add-Result 'Recent crash scan' 'PASS'
+            } catch {
+                if ($_.Exception.Message -eq 'Recent PasKey crash detected') { throw }
+                Add-Result 'Recent crash scan' 'WARN' $_.Exception.Message
+            }
         }
     }
 
