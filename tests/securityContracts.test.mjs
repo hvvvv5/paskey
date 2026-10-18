@@ -36,14 +36,26 @@ test('authenticated Autofill fills duplicate fields after unlock', async () => {
   assert.match(source, /BIOMETRIC_STRONG/);
 });
 
-test('PDF export requires master-password verification and excludes master password from report', async () => {
+test('PDF export requires explicit re-authentication and never receives the Master Password value', async () => {
   const settings = await read('src/pages/Settings.jsx');
   const exporter = await read('src/lib/passwordPdfExport.js');
   assert.match(settings, /verifyMasterPassword\(pdfPassword\)/);
+  assert.match(settings, /authenticateSensitiveAction\(\)/);
   assert.match(settings, /This PDF is not encrypted/);
   assert.match(exporter, /category\.fields\.some\(\(field\) => field\.name === 'password'\)/);
   assert.match(exporter, /field\.sensitive \? await dec\(raw\) : raw/);
-  assert.doesNotMatch(exporter, /pdf.*master.*password/i);
+  assert.doesNotMatch(exporter, /pdfPassword/);
+  assert.doesNotMatch(exporter, /verifyMasterPassword/);
+});
+
+test('Android PDF export writes into public Downloads through MediaStore', async () => {
+  const native = await read('android/app/src/main/java/com/paskey/vault/plugin/PasKeySecurityPlugin.java');
+  const exporter = await read('src/lib/passwordPdfExport.js');
+  assert.match(native, /savePdfToDownloads\(PluginCall call\)/);
+  assert.match(native, /MediaStore\.Downloads\.EXTERNAL_CONTENT_URI/);
+  assert.match(native, /Environment\.DIRECTORY_DOWNLOADS \+ "\\/PasKey"/);
+  assert.match(exporter, /savePdfToDownloads\(filename, base64\)/);
+  assert.match(exporter, /Capacitor\.getPlatform\(\) === 'android'/);
 });
 
 test('Android manifest disables backup and cleartext traffic', async () => {
