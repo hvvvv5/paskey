@@ -31,7 +31,7 @@ const AR = {
   'This permanently erases the encrypted vault, native Autofill cache and biometric unlock wrapper from this device. There is no cloud copy and no recovery.':'سيؤدي هذا إلى مسح الخزنة المشفّرة وذاكرة الملء التلقائي المحلية وبيانات فتح القفل الحيوي من هذا الجهاز نهائيًا. لا توجد نسخة سحابية ولا إمكانية للاسترداد.',
   'Type':'اكتب','to confirm.':'للتأكيد.','Type ERASE to confirm':'اكتب ERASE للتأكيد',
 };
-const Ctx=createContext({language:'en',setLanguage:()=>{},t:(s)=>s});
+const Ctx=createContext({language:'en',setLanguage:(_value)=>{},t:(s)=>s});
 export function I18nProvider({children}) {
  const {settings,updateSettings}=useVault();
  const language=settings.language==='ar'?'ar':'en';
