@@ -18,13 +18,14 @@ function Add-Result([string]$Name, [string]$State, [string]$Detail = '') {
 
 function Run-Step([string]$Name, [scriptblock]$Action) {
     try {
-        & $Action
-        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "$Name exited with code $LASTEXITCODE" }
+        & $Action | Out-Host
+        $exitCode = $LASTEXITCODE
+        if ($null -ne $exitCode -and $exitCode -ne 0) { throw "$Name exited with code $exitCode" }
         Add-Result $Name 'PASS'
-        return $true
+        return [bool]$true
     } catch {
         Add-Result $Name 'FAIL' $_.Exception.Message
-        return $false
+        return [bool]$false
     }
 }
 
@@ -94,15 +95,20 @@ try {
             } catch { Add-Result 'Android Autofill service' 'WARN' $_.Exception.Message }
 
             try {
-                $pid = (adb -s $serial shell pidof $Package 2>$null).Trim()
-                if ($pid) { Add-Result 'PasKey process' 'PASS' "PID $pid" }
+                $processId = (adb -s $serial shell pidof $Package 2>$null).Trim()
+                if ($processId) { Add-Result 'PasKey process' 'PASS' "PID $processId" }
                 else { Add-Result 'PasKey process' 'WARN' 'Process not found after launch' }
             } catch { Add-Result 'PasKey process' 'WARN' $_.Exception.Message }
 
             try {
                 $crashes = adb -s $serial logcat -d -t 400 2>$null | Select-String -Pattern 'FATAL EXCEPTION|AndroidRuntime.*com\.paskey\.vault|Process: com\.paskey\.vault'
-                if ($crashes) { Add-Result 'Recent crash scan' 'FAIL' (($crashes | Select-Object -First 3) -join ' | ') }
-                else { Add-Result 'Recent crash scan' 'PASS' }
+                if ($crashes) {
+                    $detail = (($crashes | Select-Object -First 3) -join ' | ')
+                    Add-Result 'Recent crash scan' 'FAIL' $detail
+                    throw "Recent PasKey crash detected"
+                } else {
+                    Add-Result 'Recent crash scan' 'PASS'
+                }
             } catch { Add-Result 'Recent crash scan' 'WARN' $_.Exception.Message }
         }
     }
