@@ -1,6 +1,8 @@
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { CATEGORIES } from '@/lib/categories';
+import { Capacitor } from '@capacitor/core';
+import { savePdfToDownloads } from '@/lib/native/PasKeySecurity';
 
 const PAGE_WIDTH_PX = 794;
 const A4_WIDTH_MM = 210;
@@ -420,8 +422,31 @@ async function renderPage(pdf, root, page, state) {
   page.remove();
 }
 
-function downloadPdf(pdf) {
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+async function savePdf(pdf) {
   const filename = `paskey-passwords-${new Date().toISOString().slice(0, 10)}.pdf`;
+
+  if (Capacitor.getPlatform() === 'android') {
+    const base64 = arrayBufferToBase64(pdf.output('arraybuffer'));
+    const result = await savePdfToDownloads(filename, base64);
+    return {
+      filename: result.filename || filename,
+      location: result.location || `Downloads/PasKey/${filename}`,
+      saved: result.saved === true,
+      fallback: result.fallback === true,
+    };
+  }
+
   const blob = pdf.output('blob');
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -432,7 +457,7 @@ function downloadPdf(pdf) {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-  return filename;
+  return { filename, location: filename, saved: true, fallback: false };
 }
 
 export async function exportPasswordsPdf({ repo, dec, language = 'en', t = (value) => value }) {
@@ -502,9 +527,13 @@ export async function exportPasswordsPdf({ repo, dec, language = 'en', t = (valu
       await renderPage(pdf, root, page, state);
     }
 
+    const saved = await savePdf(pdf);
     return {
       count: accounts.length,
-      filename: downloadPdf(pdf),
+      filename: saved.filename,
+      location: saved.location,
+      saved: saved.saved,
+      fallback: saved.fallback,
     };
   } finally {
     root.remove();
