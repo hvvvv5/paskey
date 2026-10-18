@@ -70,3 +70,19 @@ test('no secret-bearing native class logs Autofill values', async () => {
   assert.doesNotMatch(service, /Log\.[vdiew]\s*\(/);
   assert.doesNotMatch(auth, /Log\.[vdiew]\s*\(/);
 });
+
+
+test('password PDF uses real HTML text and typed actionable links instead of canvas rasterization', async () => {
+  const exporter = await read('src/lib/passwordPdfExport.js');
+  const native = await read('android/app/src/main/java/com/paskey/vault/plugin/PasKeySecurityPlugin.java');
+  assert.doesNotMatch(exporter, /html2canvas/);
+  assert.doesNotMatch(exporter, /addImage\(/);
+  assert.match(exporter, /mailto:/);
+  assert.match(exporter, /tel:/);
+  assert.match(exporter, /play\.google\.com\/store\/apps\/details/);
+  assert.match(exporter, /saveHtmlPdfToDownloads\(filename, html\)/);
+  assert.match(exporter, /field\.name === 'password' \? 'password'/);
+  assert.match(native, /createPrintDocumentAdapter/);
+  assert.match(native, /PrintAttributes\.MediaSize\.ISO_A4/);
+  assert.match(native, /600,/);
+});
