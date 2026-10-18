@@ -28,6 +28,7 @@ export default function Settings() {
     enc,
     dec,
     verifyMasterPassword,
+    unlockWithBiometrics,
     enableBiometricUnlock,
     disableBiometricUnlock,
   } = useVault();
@@ -57,6 +58,29 @@ export default function Settings() {
     setPdfOpen(true);
   };
 
+  const createPasswordReport = async () => {
+    const result = await exportPasswordsPdf({
+      repo,
+      dec,
+      language,
+      t,
+    });
+
+    if (!result.count) {
+      setPdfError(t('No saved passwords are available to export.'));
+      return false;
+    }
+
+    setPdfPassword('');
+    setPdfOpen(false);
+    setMsg(
+      language === 'ar'
+        ? `تم إنشاء تقرير PDF لـ ${result.count} حسابًا.`
+        : `Created a PDF report for ${result.count} accounts.`,
+    );
+    return true;
+  };
+
   const exportPasswordReport = async () => {
     if (pdfBusy) return;
     setPdfBusy(true);
@@ -68,28 +92,28 @@ export default function Settings() {
         setPdfError(t('Incorrect Master Password.'));
         return;
       }
-
-      const result = await exportPasswordsPdf({
-        repo,
-        dec,
-        language,
-        t,
-      });
-
-      if (!result.count) {
-        setPdfError(t('No saved passwords are available to export.'));
-        return;
-      }
-
-      setPdfPassword('');
-      setPdfOpen(false);
-      setMsg(
-        language === 'ar'
-          ? `تم إنشاء تقرير PDF لـ ${result.count} حسابًا.`
-          : `Created a PDF report for ${result.count} accounts.`,
-      );
+      await createPasswordReport();
     } catch {
       setPdfError(t('Unable to create the password PDF report.'));
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
+  const exportPasswordReportWithBiometrics = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    setPdfError('');
+    setMsg('');
+    try {
+      const result = await unlockWithBiometrics();
+      if (!result?.ok) {
+        setPdfError(t(result?.message || 'Biometric authentication was not completed.'));
+        return;
+      }
+      await createPasswordReport();
+    } catch {
+      setPdfError(t('Biometric authentication was not completed.'));
     } finally {
       setPdfBusy(false);
     }
@@ -229,20 +253,40 @@ export default function Settings() {
           setPdfError('');
         }
       }}>
-        <DialogContent className="border-white/10 bg-[#111111] text-white">
+        <DialogContent className="pk-pdf-dialog">
           <DialogHeader>
             <DialogTitle>{t('Export passwords to PDF')}</DialogTitle>
-            <DialogDescription className="leading-relaxed text-[#AEB4BE]">
+            <DialogDescription className="pk-pdf-dialog-description leading-relaxed">
               {t('This PDF is not encrypted. It will contain readable passwords and other account details. Keep it in a secure location and never share it unless you intend to reveal those secrets.')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-200">
+          <div className="pk-pdf-warning mt-2 rounded-xl border p-3 text-xs leading-relaxed">
             {t('The report is generated locally on this device. PasKey does not upload the PDF or its contents.')}
           </div>
 
-          <label className="mt-2 block text-sm text-white">
-            <span className="mb-2 block text-xs text-[#AEB4BE]">{t('Master Password')}</span>
+          {settings.biometricUnlock ? (
+            <button
+              type="button"
+              onClick={exportPasswordReportWithBiometrics}
+              disabled={pdfBusy}
+              className="pk-pdf-biometric-button mt-1 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium disabled:opacity-50"
+            >
+              <Fingerprint className="h-5 w-5" />
+              {pdfBusy ? t('Authenticating…') : t('Use fingerprint')}
+            </button>
+          ) : null}
+
+          {settings.biometricUnlock ? (
+            <div className="pk-pdf-divider flex items-center gap-3 text-[11px]">
+              <span className="h-px flex-1" />
+              <span>{t('or use Master Password')}</span>
+              <span className="h-px flex-1" />
+            </div>
+          ) : null}
+
+          <label className="mt-1 block text-sm">
+            <span className="pk-pdf-muted mb-2 block text-xs">{t('Master Password')}</span>
             <input
               type="password"
               value={pdfPassword}
@@ -252,7 +296,7 @@ export default function Settings() {
               }}
               autoComplete="current-password"
               autoFocus
-              className="pk-themed-control w-full rounded-xl border px-3 py-3 outline-none"
+              className="pk-themed-control pk-pdf-input w-full rounded-xl border px-3 py-3 outline-none"
               placeholder={t('Enter Master Password to continue')}
             />
           </label>
@@ -264,7 +308,7 @@ export default function Settings() {
               type="button"
               onClick={() => setPdfOpen(false)}
               disabled={pdfBusy}
-              className="rounded-xl border border-white/10 px-4 py-3 text-sm text-[#AEB4BE] disabled:opacity-50"
+              className="pk-pdf-secondary-button rounded-xl border px-4 py-3 text-sm disabled:opacity-50"
             >
               {t('Cancel')}
             </button>
@@ -272,7 +316,7 @@ export default function Settings() {
               type="button"
               onClick={exportPasswordReport}
               disabled={pdfBusy || !pdfPassword}
-              className="rounded-xl bg-[#C8A96B] px-4 py-3 text-sm font-medium text-[#070707] disabled:opacity-50"
+              className="pk-pdf-primary-button rounded-xl px-4 py-3 text-sm font-medium disabled:opacity-50"
             >
               {pdfBusy ? t('Creating PDF…') : t('Create PDF')}
             </button>
