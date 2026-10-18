@@ -1,19 +1,19 @@
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
-import { CATEGORIES } from '@/lib/categories';
 import { Capacitor } from '@capacitor/core';
-import { savePdfToDownloads } from '@/lib/native/PasKeySecurity';
-
-const PAGE_WIDTH_PX = 794;
-const A4_WIDTH_MM = 210;
-const A4_HEIGHT_MM = 297;
-const CANVAS_SCALE = 1.6;
+import { CATEGORIES } from '@/lib/categories';
+import { saveHtmlPdfToDownloads } from '@/lib/native/PasKeySecurity';
 
 const clean = (value) => {
   if (Array.isArray(value)) return value.join(', ');
   if (value === null || value === undefined) return '';
   return String(value).trim();
 };
+
+const esc = (value) => clean(value)
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
 
 const passwordCategories = () => CATEGORIES.filter((category) => (
   category.fields.some((field) => field.name === 'password')
@@ -31,7 +31,7 @@ const titleOf = (category, item = {}) => (
   || category.label
 );
 
-const websiteLinks = (value) => clean(value)
+const splitValues = (value) => clean(value)
   .split(/[,;\n]/)
   .map((entry) => entry.trim())
   .filter(Boolean);
@@ -39,8 +39,46 @@ const websiteLinks = (value) => clean(value)
 const websiteHref = (value) => {
   const text = clean(value);
   if (!text) return '';
-  return /^[a-z][a-z\d+.-]*:\/\//i.test(text) ? text : `https://${text}`;
+  if (/^https?:\/\//i.test(text)) return text;
+  if (/^(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(text)) return `http://${text}`;
+  return `https://${text}`;
 };
+
+const mailHref = (value) => {
+  const text = clean(value);
+  return text ? `mailto:${text}` : '';
+};
+
+const phoneHref = (value) => {
+  const number = clean(value).replace(/[^\d+]/g, '');
+  return number ? `tel:${number}` : '';
+};
+
+const playStoreHref = (value) => {
+  const packageName = clean(value);
+  return packageName
+    ? `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageName)}`
+    : '';
+};
+
+function linkTargets(fieldName, value) {
+  const values = splitValues(value);
+  if (!values.length) return [];
+
+  if (fieldName === 'website' || fieldName === 'url') {
+    return values.map((text) => ({ text, href: websiteHref(text), kind: 'web' }));
+  }
+  if (fieldName === 'email' || fieldName === 'recovery_email') {
+    return values.map((text) => ({ text, href: mailHref(text), kind: 'mail' }));
+  }
+  if (fieldName === 'phone' || fieldName === 'recovery_phone') {
+    return values.map((text) => ({ text, href: phoneHref(text), kind: 'phone' }));
+  }
+  if (fieldName === 'applicationIdentifier') {
+    return values.map((text) => ({ text, href: playStoreHref(text), kind: 'app' }));
+  }
+  return [];
+}
 
 async function collectAccounts(repo, dec, t) {
   const accounts = [];
@@ -75,467 +113,358 @@ async function collectAccounts(repo, dec, t) {
   return accounts;
 }
 
-function reportRoot(language) {
-  const root = document.createElement('div');
-  root.dir = language === 'ar' ? 'rtl' : 'ltr';
-  root.setAttribute('aria-hidden', 'true');
-  Object.assign(root.style, {
-    position: 'fixed',
-    left: '-100000px',
-    top: '0',
-    width: `${PAGE_WIDTH_PX}px`,
-    background: '#ffffff',
-    color: '#111827',
-    fontFamily: 'Arial, Tahoma, sans-serif',
-    pointerEvents: 'none',
-    zIndex: '-1',
-  });
-  document.body.appendChild(root);
-  return root;
-}
-
-function pageShell(language) {
-  const page = document.createElement('section');
-  page.dir = language === 'ar' ? 'rtl' : 'ltr';
-  Object.assign(page.style, {
-    boxSizing: 'border-box',
-    width: `${PAGE_WIDTH_PX}px`,
-    minHeight: '1123px',
-    padding: '52px 54px 58px',
-    background: '#ffffff',
-    color: '#111827',
-    fontFamily: 'Arial, Tahoma, sans-serif',
-  });
-  return page;
-}
-
-function appendHeader(page, title, subtitle = '') {
-  const brand = document.createElement('div');
-  brand.textContent = 'PASKEY';
-  Object.assign(brand.style, {
-    fontSize: '12px',
-    letterSpacing: '4px',
-    fontWeight: '700',
-    color: '#9A733D',
-    marginBottom: '14px',
-  });
-
-  const heading = document.createElement('h1');
-  heading.textContent = title;
-  Object.assign(heading.style, {
-    margin: '0',
-    fontSize: '28px',
-    lineHeight: '1.25',
-    color: '#111827',
-  });
-
-  page.append(brand, heading);
-
-  if (subtitle) {
-    const sub = document.createElement('p');
-    sub.textContent = subtitle;
-    Object.assign(sub.style, {
-      margin: '10px 0 0',
-      fontSize: '13px',
-      lineHeight: '1.65',
-      color: '#6B7280',
-    });
-    page.appendChild(sub);
-  }
-
-  const rule = document.createElement('div');
-  Object.assign(rule.style, {
-    height: '2px',
-    margin: '22px 0 26px',
-    background: '#C8A96B',
-  });
-  page.appendChild(rule);
-}
-
-function appendFooter(page, text) {
-  const footer = document.createElement('div');
-  footer.textContent = text;
-  Object.assign(footer.style, {
-    marginTop: '34px',
-    paddingTop: '14px',
-    borderTop: '1px solid #E5E7EB',
-    fontSize: '10px',
-    lineHeight: '1.5',
-    color: '#9CA3AF',
-  });
-  page.appendChild(footer);
-}
-
-function appendMetric(page, label, value) {
-  const box = document.createElement('div');
-  Object.assign(box.style, {
-    display: 'inline-block',
-    minWidth: '155px',
-    margin: '0 10px 10px 0',
-    padding: '16px 18px',
-    border: '1px solid #E5E7EB',
-    borderRadius: '12px',
-    background: '#FAFAF9',
-  });
-
-  const number = document.createElement('div');
-  number.textContent = String(value);
-  Object.assign(number.style, {
-    fontSize: '27px',
-    fontWeight: '700',
-    color: '#111827',
-  });
-
-  const caption = document.createElement('div');
-  caption.textContent = label;
-  Object.assign(caption.style, {
-    marginTop: '4px',
-    fontSize: '11px',
-    color: '#6B7280',
-  });
-
-  box.append(number, caption);
-  page.appendChild(box);
-}
-
-function appendWarning(page, text) {
-  const warning = document.createElement('div');
-  warning.textContent = text;
-  Object.assign(warning.style, {
-    marginTop: '24px',
-    padding: '16px 18px',
-    border: '1px solid #F59E0B',
-    borderRadius: '12px',
-    background: '#FFFBEB',
-    color: '#92400E',
-    fontSize: '12px',
-    fontWeight: '700',
-    lineHeight: '1.65',
-  });
-  page.appendChild(warning);
-}
-
-function tableRow(page, labelText, valueText, { password = false, links = [] } = {}) {
-  const tr = document.createElement('tr');
-
-  const label = document.createElement('th');
-  label.textContent = labelText;
-  Object.assign(label.style, {
-    boxSizing: 'border-box',
-    width: '29%',
-    padding: '11px 12px',
-    verticalAlign: 'top',
-    textAlign: page.dir === 'rtl' ? 'right' : 'left',
-    fontWeight: '700',
-    color: '#4B5563',
-    background: '#F3F4F6',
-    borderBottom: '1px solid #E5E7EB',
-  });
-
-  const value = document.createElement('td');
-  Object.assign(value.style, {
-    boxSizing: 'border-box',
-    padding: '11px 12px',
-    verticalAlign: 'top',
-    textAlign: page.dir === 'rtl' ? 'right' : 'left',
-    color: password ? '#7C2D12' : '#111827',
-    background: '#FFFFFF',
-    borderBottom: '1px solid #E5E7EB',
-    wordBreak: 'break-word',
-    whiteSpace: 'pre-wrap',
-    lineHeight: '1.55',
-    fontWeight: password ? '700' : '400',
-    fontFamily: password
-      ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
-      : 'Arial, Tahoma, sans-serif',
-  });
-
+function valueMarkup(field, value) {
+  const links = linkTargets(field.name, value);
   if (links.length) {
-    links.forEach((link, index) => {
-      if (index > 0) value.appendChild(document.createElement('br'));
-      const anchor = document.createElement('a');
-      anchor.textContent = link;
-      anchor.href = websiteHref(link);
-      anchor.dataset.pdfLink = anchor.href;
-      Object.assign(anchor.style, {
-        color: '#1D4ED8',
-        textDecoration: 'underline',
-        wordBreak: 'break-all',
-      });
-      value.appendChild(anchor);
-    });
-  } else {
-    value.textContent = valueText || '—';
+    return links.map(({ text, href, kind }) => (
+      `<a class="smart-link ${kind}" href="${esc(href)}">${esc(text)}</a>`
+    )).join('<br>');
   }
 
-  tr.append(label, value);
-  return tr;
+  const classes = [
+    'value',
+    field.name === 'password' ? 'password' : '',
+    ['email', 'username', 'phone', 'password', 'website', 'url', 'applicationIdentifier', 'iban'].includes(field.name)
+      ? 'technical'
+      : '',
+  ].filter(Boolean).join(' ');
+
+  return `<span class="${classes}">${esc(value) || '—'}</span>`;
 }
 
-function appendAccountTable(page, account, t) {
-  const table = document.createElement('table');
-  Object.assign(table.style, {
-    width: '100%',
-    borderCollapse: 'separate',
-    borderSpacing: '0',
-    tableLayout: 'fixed',
-    border: '1px solid #D1D5DB',
-    borderRadius: '12px',
-    overflow: 'hidden',
-    fontSize: '12px',
-  });
-
-  table.appendChild(tableRow(page, t('Category'), t(account.category.label)));
+function accountRows(account, t) {
+  const rows = [];
+  rows.push(`
+    <tr>
+      <th>${esc(t('Category'))}</th>
+      <td><span class="category-pill">${esc(t(account.category.label))}</span></td>
+    </tr>
+  `);
 
   for (const field of account.category.fields) {
     if (field.kind === 'avatar' || field.name === 'avatar') continue;
     const value = account.values[field.name];
     if (!clean(value)) continue;
-
-    table.appendChild(tableRow(
-      page,
-      t(field.label),
-      clean(value),
-      {
-        password: field.name === 'password',
-        links: field.name === 'website' ? websiteLinks(value) : [],
-      },
-    ));
+    rows.push(`
+      <tr>
+        <th>${esc(t(field.label))}</th>
+        <td>${valueMarkup(field, value)}</td>
+      </tr>
+    `);
   }
 
   if (account.item.created_date) {
-    table.appendChild(tableRow(
-      page,
-      t('Created'),
-      new Date(account.item.created_date).toLocaleString(),
-    ));
+    rows.push(`
+      <tr>
+        <th>${esc(t('Created'))}</th>
+        <td><span class="technical">${esc(new Date(account.item.created_date).toLocaleString())}</span></td>
+      </tr>
+    `);
   }
   if (account.item.updated_date) {
-    table.appendChild(tableRow(
-      page,
-      t('Last updated'),
-      new Date(account.item.updated_date).toLocaleString(),
-    ));
+    rows.push(`
+      <tr>
+        <th>${esc(t('Last updated'))}</th>
+        <td><span class="technical">${esc(new Date(account.item.updated_date).toLocaleString())}</span></td>
+      </tr>
+    `);
   }
 
-  const rows = [...table.rows];
-  if (rows.length) {
-    const last = rows[rows.length - 1];
-    [...last.cells].forEach((cell) => { cell.style.borderBottom = '0'; });
-  }
-
-  page.appendChild(table);
+  return rows.join('');
 }
 
-async function renderPage(pdf, root, page, state) {
-  root.appendChild(page);
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+function quickActions(account, t) {
+  const actions = [];
+  const website = linkTargets('website', account.values.website || '');
+  const email = linkTargets('email', account.values.email || '');
+  const phone = linkTargets('phone', account.values.phone || '');
+  const apps = linkTargets('applicationIdentifier', account.values.applicationIdentifier || '');
 
-  const rect = page.getBoundingClientRect();
-  const anchors = [...page.querySelectorAll('[data-pdf-link]')].map((anchor) => {
-    const linkRect = anchor.getBoundingClientRect();
-    return {
-      href: anchor.dataset.pdfLink,
-      left: linkRect.left - rect.left,
-      top: linkRect.top - rect.top,
-      width: linkRect.width,
-      height: linkRect.height,
-    };
-  });
+  if (website[0]) actions.push(`<a href="${esc(website[0].href)}">${esc(t('Open website'))}</a>`);
+  if (email[0]) actions.push(`<a href="${esc(email[0].href)}">${esc(t('Send email'))}</a>`);
+  if (phone[0]) actions.push(`<a href="${esc(phone[0].href)}">${esc(t('Call phone'))}</a>`);
+  if (apps[0]) actions.push(`<a href="${esc(apps[0].href)}">${esc(t('Open in Google Play'))}</a>`);
 
-  const canvas = await html2canvas(page, {
-    scale: CANVAS_SCALE,
-    backgroundColor: '#ffffff',
-    logging: false,
-    useCORS: false,
-  });
-
-  const mmPerCssPx = A4_WIDTH_MM / rect.width;
-  const pageCssHeight = A4_HEIGHT_MM / mmPerCssPx;
-  const sourceScale = canvas.width / rect.width;
-  const totalSlices = Math.max(1, Math.ceil(rect.height / pageCssHeight));
-
-  for (let sliceIndex = 0; sliceIndex < totalSlices; sliceIndex += 1) {
-    if (state.used) pdf.addPage('a4', 'portrait');
-
-    const cssTop = sliceIndex * pageCssHeight;
-    const cssHeight = Math.min(pageCssHeight, rect.height - cssTop);
-    const srcY = Math.round(cssTop * sourceScale);
-    const srcHeight = Math.max(1, Math.min(
-      canvas.height - srcY,
-      Math.ceil(cssHeight * sourceScale),
-    ));
-
-    const slice = document.createElement('canvas');
-    slice.width = canvas.width;
-    slice.height = srcHeight;
-    const ctx = slice.getContext('2d', { alpha: false });
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, slice.width, slice.height);
-    ctx.drawImage(
-      canvas,
-      0,
-      srcY,
-      canvas.width,
-      srcHeight,
-      0,
-      0,
-      slice.width,
-      srcHeight,
-    );
-
-    const img = slice.toDataURL('image/jpeg', 0.94);
-    pdf.addImage(
-      img,
-      'JPEG',
-      0,
-      0,
-      A4_WIDTH_MM,
-      cssHeight * mmPerCssPx,
-      undefined,
-      'FAST',
-    );
-
-    anchors.forEach((link) => {
-      const linkBottom = link.top + link.height;
-      const sliceBottom = cssTop + cssHeight;
-      if (linkBottom <= cssTop || link.top >= sliceBottom) return;
-
-      const clippedTop = Math.max(link.top, cssTop);
-      const clippedBottom = Math.min(linkBottom, sliceBottom);
-      pdf.link(
-        link.left * mmPerCssPx,
-        (clippedTop - cssTop) * mmPerCssPx,
-        Math.max(1, link.width * mmPerCssPx),
-        Math.max(1, (clippedBottom - clippedTop) * mmPerCssPx),
-        { url: link.href },
-      );
-    });
-
-    slice.width = 1;
-    slice.height = 1;
-    state.used = true;
-  }
-
-  canvas.width = 1;
-  canvas.height = 1;
-  page.remove();
+  return actions.length
+    ? `<div class="quick-actions">${actions.join('')}</div>`
+    : '';
 }
 
-function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  let binary = '';
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    const chunk = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
-    binary += String.fromCharCode(...chunk);
+function buildHtml(accounts, language, t) {
+  const rtl = language === 'ar';
+  const generated = new Date().toLocaleString(rtl ? 'ar' : undefined);
+
+  const indexRows = accounts.map((account, index) => `
+    <tr>
+      <td class="index-no">${index + 1}</td>
+      <td><a href="#account-${index + 1}">${esc(account.title)}</a></td>
+      <td>${esc(t(account.category.label))}</td>
+      <td class="technical">${esc(identityOf(account.values))}</td>
+    </tr>
+  `).join('');
+
+  const accountBlocks = accounts.map((account, index) => `
+    <section class="account" id="account-${index + 1}">
+      <div class="account-head">
+        <div>
+          <div class="eyebrow">${esc(t(account.category.label))} · ${index + 1}/${accounts.length}</div>
+          <h2>${esc(account.title)}</h2>
+        </div>
+        <div class="account-number">#${String(index + 1).padStart(2, '0')}</div>
+      </div>
+      ${quickActions(account, t)}
+      <table class="account-table">
+        <tbody>${accountRows(account, t)}</tbody>
+      </table>
+    </section>
+  `).join('');
+
+  return `<!doctype html>
+<html lang="${rtl ? 'ar' : 'en'}" dir="${rtl ? 'rtl' : 'ltr'}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(t('PasKey Password Report'))}</title>
+<style>
+  @page { size: A4; margin: 12mm 11mm 14mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: Arial, "Noto Sans Arabic", Tahoma, sans-serif;
+    font-size: 9.5pt;
+    line-height: 1.45;
+    color: #171717;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    text-rendering: geometricPrecision;
   }
-  return btoa(binary);
+  a { color: #0b57d0; text-decoration: underline; text-underline-offset: 2px; }
+  .technical, .password, .smart-link {
+    direction: ltr;
+    unicode-bidi: plaintext;
+    text-align: left;
+    font-family: "Roboto Mono", "Courier New", monospace;
+  }
+  .cover {
+    min-height: 255mm;
+    display: flex;
+    flex-direction: column;
+  }
+  .brand {
+    font-size: 10pt;
+    letter-spacing: 4px;
+    font-weight: 700;
+    color: #8b682f;
+  }
+  h1 {
+    margin: 10mm 0 2mm;
+    font-size: 25pt;
+    line-height: 1.15;
+    font-weight: 700;
+  }
+  .subtitle { color: #666; font-size: 10pt; max-width: 155mm; }
+  .rule { height: 1.3pt; background: #c8a96b; margin: 6mm 0; }
+  .metrics { display: flex; gap: 4mm; margin: 4mm 0 6mm; }
+  .metric {
+    border: 1px solid #ddd4c3;
+    border-radius: 8px;
+    padding: 4mm 5mm;
+    min-width: 38mm;
+    background: #fbf8f2;
+  }
+  .metric strong { display: block; font-size: 18pt; line-height: 1; }
+  .metric span { color: #666; font-size: 8pt; }
+  .warning {
+    border: 1px solid #d9b55b;
+    background: #fff9e9;
+    color: #6d4b08;
+    border-radius: 8px;
+    padding: 4mm;
+    margin: 2mm 0 6mm;
+    font-weight: 700;
+  }
+  .index-title { font-size: 13pt; font-weight: 700; margin: 4mm 0 2mm; }
+  .index-table, .account-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .index-table th, .index-table td {
+    border-bottom: 1px solid #ece7df;
+    padding: 2.2mm 2mm;
+    vertical-align: top;
+  }
+  .index-table th { color: #666; font-size: 8pt; text-align: start; }
+  .index-no { width: 10mm; color: #8b682f; font-weight: 700; }
+  .footer-note {
+    margin-top: auto;
+    padding-top: 6mm;
+    color: #8a8a8a;
+    font-size: 7.5pt;
+  }
+  .account {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin: 0 0 7mm;
+    border: 1px solid #d8d8d8;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .account-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 5mm;
+    padding: 4mm 4.5mm 3.5mm;
+    background: #faf8f4;
+    border-bottom: 1px solid #e6dfd2;
+  }
+  .eyebrow { color: #8b682f; font-size: 7.5pt; font-weight: 700; }
+  h2 {
+    margin: 1mm 0 0;
+    font-size: 14pt;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .account-number {
+    direction: ltr;
+    font-family: "Courier New", monospace;
+    color: #99845d;
+    font-size: 10pt;
+    white-space: nowrap;
+  }
+  .quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2mm;
+    padding: 2.5mm 4.5mm 1mm;
+    background: #fff;
+  }
+  .quick-actions a {
+    display: inline-block;
+    border: 1px solid #d6c5a4;
+    border-radius: 999px;
+    padding: 1.1mm 2.5mm;
+    background: #fffaf0;
+    font-size: 7.8pt;
+    text-decoration: none;
+  }
+  .account-table th,
+  .account-table td {
+    border-top: 1px solid #eeeeee;
+    padding: 2.3mm 3.6mm;
+    vertical-align: top;
+  }
+  .account-table tr:first-child th,
+  .account-table tr:first-child td { border-top: 0; }
+  .account-table th {
+    width: 31%;
+    background: #fbfbfb;
+    color: #555;
+    font-weight: 700;
+    text-align: start;
+  }
+  .account-table td {
+    width: 69%;
+    background: #fff;
+    overflow-wrap: anywhere;
+  }
+  .password {
+    display: inline-block;
+    color: #8b1e14;
+    font-size: 11.5pt;
+    font-weight: 700;
+    letter-spacing: .15px;
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
+  .value { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .smart-link { word-break: break-all; }
+  .category-pill {
+    display: inline-block;
+    padding: .8mm 2.3mm;
+    border-radius: 999px;
+    background: #efe7d8;
+    color: #5f4922;
+    font-size: 7.8pt;
+    font-weight: 700;
+  }
+  .privacy {
+    margin: 0 0 7mm;
+    padding: 3mm 4mm;
+    border-left: 3px solid #c8a96b;
+    background: #fbf8f2;
+    color: #5f5a51;
+    break-inside: avoid;
+  }
+  [dir="rtl"] .privacy { border-left: 0; border-right: 3px solid #c8a96b; }
+</style>
+</head>
+<body>
+  <section class="cover">
+    <div class="brand">PASKEY</div>
+    <h1>${esc(t('PasKey Password Report'))}</h1>
+    <div class="subtitle">${esc(t('A high-quality local export of saved login accounts with readable passwords and actionable links.'))}</div>
+    <div class="rule"></div>
+    <div class="metrics">
+      <div class="metric"><strong>${accounts.length}</strong><span>${esc(t('Accounts'))}</span></div>
+      <div class="metric"><strong>${esc(generated)}</strong><span>${esc(t('Generated'))}</span></div>
+    </div>
+    <div class="warning">${esc(t('Sensitive PDF warning: this file contains readable passwords and other account details. Store it securely and do not share it.'))}</div>
+    <div class="index-title">${esc(t('Account index'))}</div>
+    <table class="index-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>${esc(t('Account'))}</th>
+          <th>${esc(t('Category'))}</th>
+          <th>${esc(t('Identity'))}</th>
+        </tr>
+      </thead>
+      <tbody>${indexRows}</tbody>
+    </table>
+    <div class="footer-note">${esc(t('Generated locally by PasKey. No vault data was uploaded.'))}</div>
+  </section>
+
+  <div class="privacy">${esc(t('Links in this report are active when supported by your PDF viewer. Text is exported as real document text for selection, search, copy and editing in compatible PDF editors.'))}</div>
+  ${accountBlocks}
+</body>
+</html>`;
 }
 
-async function savePdf(pdf) {
-  const filename = `paskey-passwords-${new Date().toISOString().slice(0, 10)}.pdf`;
-
-  if (Capacitor.getPlatform() === 'android') {
-    const base64 = arrayBufferToBase64(pdf.output('arraybuffer'));
-    const result = await savePdfToDownloads(filename, base64);
-    return {
-      filename: result.filename || filename,
-      location: result.location || `Downloads/PasKey/${filename}`,
-      saved: result.saved === true,
-      fallback: result.fallback === true,
-    };
-  }
-
-  const blob = pdf.output('blob');
+function browserPrintFallback(html) {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.rel = 'noopener';
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-  return { filename, location: filename, saved: true, fallback: false };
+  const win = window.open(url, '_blank', 'noopener,noreferrer');
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  if (!win) throw new Error('Unable to open print preview.');
 }
 
 export async function exportPasswordsPdf({ repo, dec, language = 'en', t = (value) => value }) {
   if (!repo || typeof dec !== 'function') throw new Error('Vault is unavailable.');
 
   const accounts = await collectAccounts(repo, dec, t);
-  if (!accounts.length) return { count: 0, filename: '' };
+  if (!accounts.length) return { count: 0, filename: '', location: '' };
 
-  const root = reportRoot(language);
-  const pdf = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-    compress: true,
-  });
-  const state = { used: false };
+  const filename = `paskey-passwords-${new Date().toISOString().slice(0, 10)}.pdf`;
+  const html = buildHtml(accounts, language, t);
 
-  try {
-    const cover = pageShell(language);
-    appendHeader(
-      cover,
-      t('PasKey Password Report'),
-      t('A local plaintext export of the saved accounts in this unlocked vault.'),
-    );
-    appendMetric(cover, t('Accounts'), accounts.length);
-    appendMetric(
-      cover,
-      t('Generated'),
-      new Date().toLocaleDateString(language === 'ar' ? 'ar' : undefined),
-    );
-    appendWarning(
-      cover,
-      t('Sensitive PDF warning: this file contains readable passwords and other account details. Store it securely and do not share it.'),
-    );
-
-    const list = document.createElement('div');
-    Object.assign(list.style, {
-      marginTop: '28px',
-      fontSize: '12px',
-      lineHeight: '1.8',
-      color: '#374151',
-    });
-    accounts.forEach((account, index) => {
-      const row = document.createElement('div');
-      row.textContent = `${index + 1}. ${account.title} — ${t(account.category.label)}`;
-      row.style.borderBottom = '1px solid #F3F4F6';
-      row.style.padding = '6px 0';
-      list.appendChild(row);
-    });
-    cover.appendChild(list);
-    appendFooter(cover, t('Generated locally by PasKey. No vault data was uploaded.'));
-    await renderPage(pdf, root, cover, state);
-
-    for (let index = 0; index < accounts.length; index += 1) {
-      const account = accounts[index];
-      const page = pageShell(language);
-      appendHeader(
-        page,
-        account.title,
-        `${t(account.category.label)} · ${index + 1}/${accounts.length}`,
-      );
-      appendAccountTable(page, account, t);
-      appendFooter(
-        page,
-        t('Sensitive plaintext export — protect this PDF like your Master Password.'),
-      );
-      await renderPage(pdf, root, page, state);
-    }
-
-    const saved = await savePdf(pdf);
+  if (Capacitor.getPlatform() === 'android') {
+    const saved = await saveHtmlPdfToDownloads(filename, html);
     return {
       count: accounts.length,
-      filename: saved.filename,
-      location: saved.location,
-      saved: saved.saved,
-      fallback: saved.fallback,
+      filename: saved.filename || filename,
+      location: saved.location || `Downloads/PasKey/${filename}`,
+      saved: saved.saved === true,
     };
-  } finally {
-    root.remove();
   }
+
+  browserPrintFallback(html);
+  return {
+    count: accounts.length,
+    filename,
+    location: t('Browser print preview'),
+    saved: true,
+  };
 }
