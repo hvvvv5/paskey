@@ -137,6 +137,16 @@ public class AutofillAuthActivity extends FragmentActivity {
             AutofillId usernameId = source.getParcelableExtra("usernameId");
             AutofillId passwordId = source.getParcelableExtra("passwordId");
             AutofillId phoneId = source.getParcelableExtra("phoneId");
+
+            ArrayList<AutofillId> emailIds = source.getParcelableArrayListExtra("emailIds");
+            ArrayList<AutofillId> usernameIds = source.getParcelableArrayListExtra("usernameIds");
+            ArrayList<AutofillId> passwordIds = source.getParcelableArrayListExtra("passwordIds");
+            ArrayList<AutofillId> phoneIds = source.getParcelableArrayListExtra("phoneIds");
+            emailIds = withFallback(emailIds, emailId);
+            usernameIds = withFallback(usernameIds, usernameId);
+            passwordIds = withFallback(passwordIds, passwordId);
+            phoneIds = withFallback(phoneIds, phoneId);
+
             AutofillId cardholderId = source.getParcelableExtra("cardholderId");
             AutofillId cardNumberId = source.getParcelableExtra("cardNumberId");
             AutofillId cardExpiryId = source.getParcelableExtra("cardExpiryId");
@@ -168,27 +178,30 @@ public class AutofillAuthActivity extends FragmentActivity {
                 String phone = item.optString("phone", "").trim();
                 String primaryIdentity = primaryIdentity(item);
 
-                int identityFieldCount = 0;
-                if (emailId != null) identityFieldCount++;
-                if (usernameId != null) identityFieldCount++;
-                if (phoneId != null) identityFieldCount++;
+                int identityFieldCount =
+                        emailIds.size() + usernameIds.size() + phoneIds.size();
 
                 if (identityFieldCount <= 1) {
                     // Many apps expose one generic "email / username / phone"
-                    // field. Fill the saved primary identity regardless of the
-                    // framework's exact classification for that single field.
-                    hasValue |= setValue(dataset, emailId, primaryIdentity, presentation);
-                    hasValue |= setValue(dataset, usernameId, primaryIdentity, presentation);
-                    hasValue |= setValue(dataset, phoneId, primaryIdentity, presentation);
+                    // field. Fill whichever identity the saved account uses.
+                    hasValue |= setValues(dataset, emailIds, primaryIdentity, presentation);
+                    hasValue |= setValues(dataset, usernameIds, primaryIdentity, presentation);
+                    hasValue |= setValues(dataset, phoneIds, primaryIdentity, presentation);
                 } else {
-                    // With separate identity fields, keep each value in its
-                    // matching field to avoid cross-filling email/phone/name.
-                    hasValue |= setValue(dataset, emailId, email, presentation);
-                    hasValue |= setValue(dataset, usernameId, username, presentation);
-                    hasValue |= setValue(dataset, phoneId, phone, presentation);
+                    // Duplicate fields of the same kind all receive the same
+                    // value, while genuinely different identity types stay
+                    // separated.
+                    hasValue |= setValues(dataset, emailIds, email, presentation);
+                    hasValue |= setValues(dataset, usernameIds, username, presentation);
+                    hasValue |= setValues(dataset, phoneIds, phone, presentation);
                 }
 
-                hasValue |= setValue(dataset, passwordId, item.optString("password", ""), presentation);
+                hasValue |= setValues(
+                        dataset,
+                        passwordIds,
+                        item.optString("password", ""),
+                        presentation
+                );
             }
 
             if (!hasValue) {
@@ -207,6 +220,27 @@ public class AutofillAuthActivity extends FragmentActivity {
         } catch (Exception ignored) {
             cancel();
         }
+    }
+
+    private ArrayList<AutofillId> withFallback(
+            ArrayList<AutofillId> ids,
+            AutofillId fallback) {
+        ArrayList<AutofillId> result = ids == null ? new ArrayList<>() : ids;
+        if (fallback != null && !result.contains(fallback)) result.add(fallback);
+        return result;
+    }
+
+    private boolean setValues(
+            Dataset.Builder dataset,
+            ArrayList<AutofillId> ids,
+            String value,
+            RemoteViews presentation) {
+        if (ids == null || value == null || value.isEmpty()) return false;
+        boolean changed = false;
+        for (AutofillId id : ids) {
+            changed |= setValue(dataset, id, value, presentation);
+        }
+        return changed;
     }
 
     private boolean setValue(Dataset.Builder dataset, AutofillId id, String value, RemoteViews presentation) {
