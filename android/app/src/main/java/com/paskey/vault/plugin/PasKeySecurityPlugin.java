@@ -425,8 +425,9 @@ public class PasKeySecurityPlugin extends Plugin {
             return;
         }
 
-        String safeName = filename.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
-        if (!safeName.toLowerCase().endsWith(".pdf")) safeName += ".pdf";
+        String normalizedName = filename.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        if (!normalizedName.toLowerCase().endsWith(".pdf")) normalizedName += ".pdf";
+        final String safeName = normalizedName;
         final String jobName = safeName.substring(0, safeName.length() - 4);
 
         activity.runOnUiThread(() -> {
