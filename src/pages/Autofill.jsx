@@ -4,7 +4,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  CheckCircle2,
   Download,
   ImagePlus,
   KeyRound,
