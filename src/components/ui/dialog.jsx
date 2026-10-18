@@ -15,7 +15,7 @@ const DialogPortal = DialogPrimitive.Portal
 
 const DialogClose = DialogPrimitive.Close
 
-const DialogOverlay = React.forwardRef((incomingProps, ref) => {
+const DialogOverlay = /** @type {any} */ (React.forwardRef((incomingProps, ref) => {
   const { className, ...props } = /** @type {any} */ (incomingProps);
   return (
     <DialogPrimitive.Overlay
@@ -27,10 +27,10 @@ const DialogOverlay = React.forwardRef((incomingProps, ref) => {
       {...props}
     />
   );
-})
+}))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-const DialogContent = React.forwardRef((incomingProps, ref) => {
+const DialogContent = /** @type {any} */ (React.forwardRef((incomingProps, ref) => {
   const { className, children, ...props } = /** @type {any} */ (incomingProps);
   return (
     <DialogPortal>
@@ -51,7 +51,7 @@ const DialogContent = React.forwardRef((incomingProps, ref) => {
       </DialogPrimitive.Content>
     </DialogPortal>
   );
-})
+}))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({
@@ -74,7 +74,7 @@ const DialogFooter = ({
 )
 DialogFooter.displayName = "DialogFooter"
 
-const DialogTitle = React.forwardRef((incomingProps, ref) => {
+const DialogTitle = /** @type {any} */ (React.forwardRef((incomingProps, ref) => {
   const { className, ...props } = /** @type {any} */ (incomingProps);
   return (
     <DialogPrimitive.Title
@@ -83,10 +83,10 @@ const DialogTitle = React.forwardRef((incomingProps, ref) => {
       {...props}
     />
   );
-})
+}))
 DialogTitle.displayName = DialogPrimitive.Title.displayName
 
-const DialogDescription = React.forwardRef((incomingProps, ref) => {
+const DialogDescription = /** @type {any} */ (React.forwardRef((incomingProps, ref) => {
   const { className, ...props } = /** @type {any} */ (incomingProps);
   return (
     <DialogPrimitive.Description
@@ -95,7 +95,7 @@ const DialogDescription = React.forwardRef((incomingProps, ref) => {
       {...props}
     />
   );
-})
+}))
 DialogDescription.displayName = DialogPrimitive.Description.displayName
 
 export {
