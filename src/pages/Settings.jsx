@@ -4,6 +4,7 @@ import { ChevronRight, Download, FileText, Fingerprint, Trash2, Upload } from 'l
 import { useVault } from '@/components/paskey/VaultContext';
 import { buildBackup, downloadBackup, restoreBackup } from '@/lib/backup';
 import { exportPasswordsPdf } from '@/lib/passwordPdfExport';
+import { authenticateSensitiveAction } from '@/lib/native/PasKeySecurity';
 import NativeNotice from '@/components/paskey/NativeNotice';
 import ChangeMasterPassword from '@/components/paskey/ChangeMasterPassword';
 import SettingsSelect from '@/components/paskey/SettingsSelect';
@@ -28,7 +29,6 @@ export default function Settings() {
     enc,
     dec,
     verifyMasterPassword,
-    unlockWithBiometrics,
     enableBiometricUnlock,
     disableBiometricUnlock,
   } = useVault();
@@ -106,9 +106,9 @@ export default function Settings() {
     setPdfError('');
     setMsg('');
     try {
-      const result = await unlockWithBiometrics();
-      if (!result?.ok) {
-        setPdfError(t(result?.message || 'Biometric authentication was not completed.'));
+      const verified = await authenticateSensitiveAction();
+      if (!verified) {
+        setPdfError(t('Biometric authentication was not completed.'));
         return;
       }
       await createPasswordReport();
@@ -265,8 +265,7 @@ export default function Settings() {
             {t('The report is generated locally on this device. PasKey does not upload the PDF or its contents.')}
           </div>
 
-          {settings.biometricUnlock ? (
-            <button
+          <button
               type="button"
               onClick={exportPasswordReportWithBiometrics}
               disabled={pdfBusy}
@@ -275,15 +274,12 @@ export default function Settings() {
               <Fingerprint className="h-5 w-5" />
               {pdfBusy ? t('Authenticating…') : t('Use fingerprint')}
             </button>
-          ) : null}
 
-          {settings.biometricUnlock ? (
-            <div className="pk-pdf-divider flex items-center gap-3 text-[11px]">
-              <span className="h-px flex-1" />
-              <span>{t('or use Master Password')}</span>
-              <span className="h-px flex-1" />
-            </div>
-          ) : null}
+          <div className="pk-pdf-divider flex items-center gap-3 text-[11px]">
+            <span className="h-px flex-1" />
+            <span>{t('or use Master Password')}</span>
+            <span className="h-px flex-1" />
+          </div>
 
           <label className="mt-1 block text-sm">
             <span className="pk-pdf-muted mb-2 block text-xs">{t('Master Password')}</span>
