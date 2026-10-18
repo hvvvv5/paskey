@@ -3,10 +3,14 @@ package com.paskey.vault.plugin;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.provider.Settings;
+import android.provider.MediaStore;
 import android.view.autofill.AutofillManager;
 import android.content.SharedPreferences;
 import android.os.Handler;
@@ -34,6 +38,9 @@ import com.paskey.vault.storage.VaultRecordEntity;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -396,6 +403,100 @@ public class PasKeySecurityPlugin extends Plugin {
         }
     }
 
+
+    @PluginMethod
+    public void savePdfToDownloads(PluginCall call) {
+        String filename = call.getString("filename");
+        String base64 = call.getString("base64");
+        if (filename == null || filename.trim().isEmpty() || base64 == null || base64.isEmpty()) {
+            call.reject("filename and base64 are required");
+            return;
+        }
+
+        String safeName = filename.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        if (!safeName.toLowerCase().endsWith(".pdf")) safeName += ".pdf";
+
+        try {
+            byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+            JSObject result = new JSObject();
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentResolver resolver = getContext().getContentResolver();
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
+                values.put(
+                        MediaStore.Downloads.RELATIVE_PATH,
+                        Environment.DIRECTORY_DOWNLOADS + "/PasKey"
+                );
+                values.put(MediaStore.Downloads.IS_PENDING, 1);
+
+                Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (uri == null) throw new IllegalStateException("Android could not create the PDF in Downloads");
+
+                boolean completed = false;
+                try (OutputStream output = resolver.openOutputStream(uri, "w")) {
+                    if (output == null) throw new IllegalStateException("Android could not open the PDF destination");
+                    output.write(bytes);
+                    output.flush();
+                    completed = true;
+                } finally {
+                    if (!completed) {
+                        try { resolver.delete(uri, null, null); } catch (Exception ignored) {}
+                    }
+                }
+
+                ContentValues ready = new ContentValues();
+                ready.put(MediaStore.Downloads.IS_PENDING, 0);
+                resolver.update(uri, ready, null, null);
+
+                result.put("saved", true);
+                result.put("filename", safeName);
+                result.put("location", "Downloads/PasKey/" + safeName);
+                result.put("uri", uri.toString());
+                call.resolve(result);
+                return;
+            }
+
+            File publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File directory = new File(publicDownloads, "PasKey");
+            if (!directory.exists() && !directory.mkdirs()) {
+                throw new IllegalStateException("Unable to create Downloads/PasKey");
+            }
+            File outputFile = new File(directory, safeName);
+            try (FileOutputStream output = new FileOutputStream(outputFile, false)) {
+                output.write(bytes);
+                output.flush();
+            }
+
+            result.put("saved", true);
+            result.put("filename", safeName);
+            result.put("location", "Downloads/PasKey/" + safeName);
+            result.put("uri", Uri.fromFile(outputFile).toString());
+            call.resolve(result);
+        } catch (Exception publicError) {
+            try {
+                File fallbackRoot = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                if (fallbackRoot == null) throw publicError;
+                File directory = new File(fallbackRoot, "PasKey");
+                if (!directory.exists() && !directory.mkdirs()) throw publicError;
+                File outputFile = new File(directory, safeName);
+                try (FileOutputStream output = new FileOutputStream(outputFile, false)) {
+                    output.write(Base64.decode(base64, Base64.DEFAULT));
+                    output.flush();
+                }
+                JSObject result = new JSObject();
+                result.put("saved", true);
+                result.put("filename", safeName);
+                result.put("location", outputFile.getAbsolutePath());
+                result.put("uri", Uri.fromFile(outputFile).toString());
+                result.put("fallback", true);
+                call.resolve(result);
+            } catch (Exception fallbackError) {
+                call.reject("Unable to save PDF on this device", fallbackError);
+            }
+        }
+    }
 
     @PluginMethod
     public void authenticateSensitiveAction(PluginCall call) {
