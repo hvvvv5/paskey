@@ -76,6 +76,16 @@ export async function savePdfToDownloads(filename, base64) {
   };
 }
 
+export async function saveHtmlPdfToDownloads(filename, html) {
+  const result = await PasKeySecurity.saveHtmlPdfToDownloads({ filename, html });
+  return {
+    saved: Boolean(result?.saved),
+    filename: result?.filename || filename,
+    location: result?.location || '',
+    uri: result?.uri || '',
+  };
+}
+
 export async function clearNativeAutofillVault() {
   try { await PasKeySecurity.clearAutofillVault(); } catch { /* browser/no native bridge */ }
 }
