@@ -2,14 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Copy, Fingerprint, Timer } from 'lucide-react';
 import { useVault } from '@/components/paskey/VaultContext';
 import NativeNotice from '@/components/paskey/NativeNotice';
+import { useI18n } from '@/lib/i18n';
 
 export default function Security() {
+  const { t, language } = useI18n();
   const { repo, settings } = useVault();
   const [audit, setAudit] = useState(null);
 
   useEffect(() => { repo.getSecurityStatistics(settings).then(setAudit); }, [repo, settings]);
 
-  if (!audit) return <p className="p-6 text-sm text-[#AEB4BE]">Running local analysis…</p>;
+  if (!audit) return <p className="p-6 text-sm text-[#AEB4BE]">{t('Running local analysis…')}</p>;
 
   const checks = [
     { label: 'Weak passwords', count: audit.weak.length, Icon: AlertTriangle },
@@ -21,15 +23,15 @@ export default function Security() {
   return (
     <div className="px-5 pb-32 pt-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.24em] text-[#C8A96B]">Local protection</p>
-        <h1 className="mt-1 font-heading text-2xl text-white">Security Center</h1>
+        <p className="text-xs uppercase tracking-[0.24em] text-[#C8A96B]">{t('Local protection')}</p>
+        <h1 className="mt-1 font-heading text-2xl text-white">{t('Security Center')}</h1>
       </div>
-      <p className="mt-1 text-sm text-[#AEB4BE]">Analysis runs entirely on this device. Nothing is uploaded.</p>
+      <p className="mt-1 text-sm text-[#AEB4BE]">{t('Analysis runs entirely on this device. Nothing is uploaded.')}</p>
 
       <div className="mt-6 rounded-2xl border border-[#C8A96B]/25 bg-gradient-to-br from-white/[0.06] to-transparent p-6 text-center">
-        <p className="text-xs uppercase tracking-widest text-[#AEB4BE]">Security Score</p>
+        <p className="text-xs uppercase tracking-widest text-[#AEB4BE]">{t('Security Score')}</p>
         <p className="mt-2 font-heading text-5xl text-white">{audit.score}<span className="text-lg text-[#AEB4BE]"> / 100</span></p>
-        <p className="mt-2 text-xs text-[#AEB4BE]">{audit.total} items audited</p>
+        <p className="mt-2 text-xs text-[#AEB4BE]">{language === 'ar' ? `تم تدقيق ${audit.total} عنصرًا` : `${audit.total} items audited`}</p>
       </div>
 
       <div className="mt-6 space-y-2">
@@ -38,28 +40,27 @@ export default function Security() {
             {count === 0
               ? <CheckCircle2 className="h-4 w-4" style={{ color: '#C8A96B' }} aria-hidden="true" />
               : <Icon className="h-4 w-4 text-[#AEB4BE]" aria-hidden="true" />}
-            <span className="flex-1 text-sm text-white">{label}</span>
-            <span className="text-sm text-[#AEB4BE]">{count === 0 ? 'None' : count}</span>
+            <span className="flex-1 text-sm text-white">{t(label)}</span>
+            <span className="text-sm text-[#AEB4BE]">{count === 0 ? t('None') : count}</span>
           </div>
         ))}
         <div className="flex items-center gap-3 rounded-xl border border-white/10 px-4 py-3.5">
           <Fingerprint className="h-4 w-4 text-[#AEB4BE]" aria-hidden="true" />
-          <span className="flex-1 text-sm text-white">Biometric unlock</span>
-          <span className="text-sm text-[#AEB4BE]">{settings.biometricUnlock ? 'Enabled' : 'Off'}</span>
+          <span className="flex-1 text-sm text-white">{t('Biometric unlock')}</span>
+          <span className="text-sm text-[#AEB4BE]">{settings.biometricUnlock ? t('Enabled') : t('Off')}</span>
         </div>
         <div className="flex items-center gap-3 rounded-xl border border-white/10 px-4 py-3.5">
           <Timer className="h-4 w-4 text-[#AEB4BE]" aria-hidden="true" />
-          <span className="flex-1 text-sm text-white">Auto-lock</span>
+          <span className="flex-1 text-sm text-white">{t('Auto lock')}</span>
           <span className="text-sm text-[#AEB4BE]">
-            {settings.autoLockMinutes === -1 ? 'Never' : settings.autoLockMinutes === 0 ? 'Immediately' : `${settings.autoLockMinutes} min`}
+            {settings.autoLockMinutes === -1 ? t('Never') : settings.autoLockMinutes === 0 ? t('Immediately') : t(`${settings.autoLockMinutes} minutes`)}
           </span>
         </div>
       </div>
 
       <div className="pk-security-native-notice mt-6">
         <NativeNotice>
-          Biometric status is read from BiometricManager and background locking is driven by the Android activity
-          lifecycle in the production build; this layer reflects your saved preference only.
+          {t('Biometric status is read from BiometricManager and background locking is driven by the Android activity lifecycle in the production build; this layer reflects your saved preference only.')}
         </NativeNotice>
       </div>
     </div>

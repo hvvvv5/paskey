@@ -11,13 +11,14 @@ export default function Splash({ onDone }) {
   }, [onDone]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#000000]">
+    <div className="pk-safe-screen fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#000000]">
       <motion.div
+        className="pk-splash-logo flex h-32 w-32 items-center justify-center rounded-full"
         initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.45, ease: 'easeOut' }}
       >
-        <Logo size={96} shimmer={shimmer} />
+        <Logo size={88} shimmer={shimmer} />
       </motion.div>
       <motion.p
         initial={{ opacity: 0, y: 6 }}

@@ -117,7 +117,7 @@ export async function importPendingAutofillSaves(repo) {
       });
       if (!pendingId || !isCompleteAutofillLogin(normalized)) continue;
 
-      const result = await repo.createItem('passwords', {
+      const result = await repo.upsertAutofillLogin({
         title: normalized.title,
         website: normalized.website,
         applicationIdentifier: normalized.applicationIdentifier,
@@ -130,7 +130,7 @@ export async function importPendingAutofillSaves(repo) {
       });
       const stored = await repo.getItem('passwords', result.id);
       if (stored && isCompleteAutofillLogin(stored)) {
-        if (!result.existing) imported += 1;
+        imported += 1;
         completedIds.push(pendingId);
       }
     }

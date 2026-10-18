@@ -35,3 +35,10 @@ base44/.app.jsonc
 *.apk
 .paskey-*-backup-*/
 backup-*/
+
+# Local repair snapshots and generated Android artifacts
+*.bak
+*.PRE-*
+android/.gradle/
+android/app/build/
+android/build/

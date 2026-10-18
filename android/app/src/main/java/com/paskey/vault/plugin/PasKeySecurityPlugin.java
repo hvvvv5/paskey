@@ -3,12 +3,28 @@ package com.paskey.vault.plugin;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.Settings;
+import android.provider.MediaStore;
+import android.print.PrintManager;
+import android.print.PrintDocumentAdapter;
+import android.print.PrintAttributes;
+import android.view.autofill.AutofillManager;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.UserNotAuthenticatedException;
 import android.util.Base64;
+import android.view.WindowManager;
+import android.webkit.WebViewClient;
+import android.webkit.WebView;
+import android.webkit.WebSettings;
 
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
@@ -28,6 +44,9 @@ import com.paskey.vault.storage.VaultRecordEntity;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -390,6 +409,272 @@ public class PasKeySecurityPlugin extends Plugin {
         }
     }
 
+
+    @PluginMethod
+    public void saveHtmlPdfToDownloads(PluginCall call) {
+        String filename = call.getString("filename");
+        String html = call.getString("html");
+        if (filename == null || filename.trim().isEmpty() || html == null || html.trim().isEmpty()) {
+            call.reject("filename and html are required");
+            return;
+        }
+
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+
+        String normalizedName = filename.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        if (!normalizedName.toLowerCase().endsWith(".pdf")) normalizedName += ".pdf";
+        final String safeName = normalizedName;
+        final String jobName = safeName.substring(0, safeName.length() - 4);
+
+        activity.runOnUiThread(() -> {
+            WebView webView = new WebView(activity);
+            try {
+                WebSettings settings = webView.getSettings();
+                settings.setDefaultTextEncodingName("UTF-8");
+                settings.setJavaScriptEnabled(false);
+                settings.setAllowFileAccess(false);
+                settings.setAllowContentAccess(false);
+
+                AtomicBoolean finished = new AtomicBoolean(false);
+                webView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        if (!finished.compareAndSet(false, true)) return;
+
+                        try {
+                            PrintManager printManager =
+                                    (PrintManager) activity.getSystemService(Context.PRINT_SERVICE);
+                            if (printManager == null) {
+                                view.destroy();
+                                call.reject("Android print service is unavailable");
+                                return;
+                            }
+
+                            PrintDocumentAdapter adapter =
+                                    view.createPrintDocumentAdapter(jobName);
+
+                            PrintAttributes attributes = new PrintAttributes.Builder()
+                                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                    .setResolution(new PrintAttributes.Resolution(
+                                            "paskey_pdf",
+                                            "PasKey PDF",
+                                            600,
+                                            600
+                                    ))
+                                    .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                                    .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                                    .build();
+
+                            printManager.print(jobName, adapter, attributes);
+
+                            JSObject result = new JSObject();
+                            result.put("saved", true);
+                            result.put("filename", safeName);
+                            result.put("location", "Android print dialog");
+                            result.put("printDialog", true);
+                            call.resolve(result);
+
+                            // Do not destroy the WebView immediately: the Android
+                            // print framework still reads from its adapter while
+                            // the system print/save dialog is open.
+                            new Handler(Looper.getMainLooper()).postDelayed(
+                                    view::destroy,
+                                    120000L
+                            );
+                        } catch (Exception exception) {
+                            view.destroy();
+                            call.reject("Unable to open Android PDF print dialog", exception);
+                        }
+                    }
+                });
+
+                webView.loadDataWithBaseURL(
+                        "https://paskey.local/",
+                        html,
+                        "text/html",
+                        "UTF-8",
+                        null
+                );
+            } catch (Exception exception) {
+                webView.destroy();
+                call.reject("Unable to prepare PDF document", exception);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void savePdfToDownloads(PluginCall call) {
+        String filename = call.getString("filename");
+        String base64 = call.getString("base64");
+        if (filename == null || filename.trim().isEmpty() || base64 == null || base64.isEmpty()) {
+            call.reject("filename and base64 are required");
+            return;
+        }
+
+        String safeName = filename.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        if (!safeName.toLowerCase().endsWith(".pdf")) safeName += ".pdf";
+
+        try {
+            byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+            JSObject result = new JSObject();
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentResolver resolver = getContext().getContentResolver();
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
+                values.put(
+                        MediaStore.Downloads.RELATIVE_PATH,
+                        Environment.DIRECTORY_DOWNLOADS + "/PasKey"
+                );
+                values.put(MediaStore.Downloads.IS_PENDING, 1);
+
+                Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (uri == null) throw new IllegalStateException("Android could not create the PDF in Downloads");
+
+                boolean completed = false;
+                try (OutputStream output = resolver.openOutputStream(uri, "w")) {
+                    if (output == null) throw new IllegalStateException("Android could not open the PDF destination");
+                    output.write(bytes);
+                    output.flush();
+                    completed = true;
+                } finally {
+                    if (!completed) {
+                        try { resolver.delete(uri, null, null); } catch (Exception ignored) {}
+                    }
+                }
+
+                ContentValues ready = new ContentValues();
+                ready.put(MediaStore.Downloads.IS_PENDING, 0);
+                resolver.update(uri, ready, null, null);
+
+                result.put("saved", true);
+                result.put("filename", safeName);
+                result.put("location", "Downloads/PasKey/" + safeName);
+                result.put("uri", uri.toString());
+                call.resolve(result);
+                return;
+            }
+
+            File publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File directory = new File(publicDownloads, "PasKey");
+            if (!directory.exists() && !directory.mkdirs()) {
+                throw new IllegalStateException("Unable to create Downloads/PasKey");
+            }
+            File outputFile = new File(directory, safeName);
+            try (FileOutputStream output = new FileOutputStream(outputFile, false)) {
+                output.write(bytes);
+                output.flush();
+            }
+
+            result.put("saved", true);
+            result.put("filename", safeName);
+            result.put("location", "Downloads/PasKey/" + safeName);
+            result.put("uri", Uri.fromFile(outputFile).toString());
+            call.resolve(result);
+        } catch (Exception publicError) {
+            try {
+                File fallbackRoot = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                if (fallbackRoot == null) throw publicError;
+                File directory = new File(fallbackRoot, "PasKey");
+                if (!directory.exists() && !directory.mkdirs()) throw publicError;
+                File outputFile = new File(directory, safeName);
+                try (FileOutputStream output = new FileOutputStream(outputFile, false)) {
+                    output.write(Base64.decode(base64, Base64.DEFAULT));
+                    output.flush();
+                }
+                JSObject result = new JSObject();
+                result.put("saved", true);
+                result.put("filename", safeName);
+                result.put("location", outputFile.getAbsolutePath());
+                result.put("uri", Uri.fromFile(outputFile).toString());
+                result.put("fallback", true);
+                call.resolve(result);
+            } catch (Exception fallbackError) {
+                call.reject("Unable to save PDF on this device", fallbackError);
+            }
+        }
+    }
+
+    @PluginMethod
+    public void authenticateSensitiveAction(PluginCall call) {
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+
+        String availabilityError = biometricKeyAvailabilityError(activity);
+        if (availabilityError != null) {
+            call.reject(availabilityError);
+            return;
+        }
+
+        activity.runOnUiThread(() -> {
+            AtomicBoolean completed = new AtomicBoolean(false);
+            try {
+                Executor executor = ContextCompat.getMainExecutor(activity);
+                BiometricPrompt prompt = new BiometricPrompt(
+                        activity,
+                        executor,
+                        new BiometricPrompt.AuthenticationCallback() {
+                            @Override
+                            public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                                if (!completed.compareAndSet(false, true)) return;
+                                JSObject response = new JSObject();
+                                response.put("verified", true);
+                                call.resolve(response);
+                            }
+
+                            @Override
+                            public void onAuthenticationError(int errorCode, CharSequence errorText) {
+                                if (!completed.compareAndSet(false, true)) return;
+                                call.reject(biometricAuthenticationError(errorCode, errorText));
+                            }
+
+                            @Override
+                            public void onAuthenticationFailed() {
+                                // Android keeps the prompt open so the user can retry.
+                            }
+                        }
+                );
+                prompt.authenticate(strongPromptInfo(
+                        "Confirm sensitive export",
+                        "Verify your identity before exporting readable passwords",
+                        "Use Master Password"
+                ));
+            } catch (Exception exception) {
+                if (completed.compareAndSet(false, true)) {
+                    call.reject("Unable to start biometric authentication. Use your Master Password.", exception);
+                }
+            }
+        });
+    }
+
+    @PluginMethod
+    public void setScreenshotProtection(PluginCall call) {
+        Boolean enabled = call.getBoolean("enabled", true);
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            if (Boolean.TRUE.equals(enabled)) {
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            } else {
+                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            }
+            JSObject result = new JSObject();
+            result.put("enabled", Boolean.TRUE.equals(enabled));
+            call.resolve(result);
+        });
+    }
+
     @PluginMethod
     public void copySecure(PluginCall call) {
         String value = call.getString("value");
@@ -418,6 +703,91 @@ public class PasKeySecurityPlugin extends Plugin {
             }, seconds * 1000L);
         }
         call.resolve();
+    }
+
+    @PluginMethod
+    public void getAutofillStatus(PluginCall call) {
+        JSObject result = new JSObject();
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            result.put("supported", false);
+            result.put("enabled", false);
+            call.resolve(result);
+            return;
+        }
+
+        AutofillManager manager = getContext().getSystemService(AutofillManager.class);
+        boolean supported = manager != null && manager.isAutofillSupported();
+        boolean enabled = supported && manager.hasEnabledAutofillServices();
+        result.put("supported", supported);
+        result.put("enabled", enabled);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void requestEnableAutofill(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            call.reject("Android Autofill requires Android 8.0 or newer");
+            return;
+        }
+
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+
+        AutofillManager manager = activity.getSystemService(AutofillManager.class);
+        if (manager == null || !manager.isAutofillSupported()) {
+            call.reject("Android Autofill is not supported on this device");
+            return;
+        }
+
+        JSObject result = new JSObject();
+        if (manager.hasEnabledAutofillServices()) {
+            result.put("enabled", true);
+            result.put("openedSettings", false);
+            call.resolve(result);
+            return;
+        }
+
+        activity.runOnUiThread(() -> {
+            try {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE);
+                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                activity.startActivity(intent);
+                JSObject response = new JSObject();
+                response.put("enabled", false);
+                response.put("openedSettings", true);
+                call.resolve(response);
+            } catch (Exception exception) {
+                call.reject("Unable to open Android Autofill settings", exception);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void openChromeAutofillSettings(PluginCall call) {
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+
+        activity.runOnUiThread(() -> {
+            try {
+                Intent intent = new Intent(Intent.ACTION_APPLICATION_PREFERENCES);
+                intent.addCategory(Intent.CATEGORY_DEFAULT);
+                intent.addCategory(Intent.CATEGORY_APP_BROWSER);
+                intent.addCategory(Intent.CATEGORY_PREFERENCE);
+                intent.setPackage("com.android.chrome");
+                activity.startActivity(intent);
+                JSObject result = new JSObject();
+                result.put("opened", true);
+                call.resolve(result);
+            } catch (Exception exception) {
+                call.reject("Unable to open Chrome Autofill settings", exception);
+            }
+        });
     }
 
     @PluginMethod

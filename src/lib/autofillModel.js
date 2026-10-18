@@ -74,3 +74,16 @@ export function normalizeAutofillRecord(record = {}) {
     _paskeyPendingId: text(record._paskeyPendingId || record.pendingId),
   };
 }
+
+export function matchesAutofillAccount(record = {}, candidate = {}) {
+  const currentIdentity = autofillIdentity(record).value.toLowerCase();
+  const candidateIdentity = autofillIdentity(candidate).value.toLowerCase();
+  if (!currentIdentity || currentIdentity !== candidateIdentity) return false;
+  const currentTarget = autofillTarget(record);
+  const candidateTarget = autofillTarget(candidate);
+  return Boolean(
+    currentTarget.type
+    && currentTarget.type === candidateTarget.type
+    && currentTarget.value === candidateTarget.value
+  );
+}

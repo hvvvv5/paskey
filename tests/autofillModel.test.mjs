@@ -6,6 +6,7 @@ import {
   isCompleteAutofillLogin,
   normalizeAutofillRecord,
   normalizeAutofillHost,
+  matchesAutofillAccount,
 } from '../src/lib/autofillModel.js';
 
 test('email login is complete, normalized, and clearly titled', () => {
@@ -61,4 +62,15 @@ test('a user-selected local image survives normalization', () => {
     image,
   });
   assert.equal(record.image, image);
+});
+
+test('matches existing account by normalized target and identity', () => {
+  assert.equal(matchesAutofillAccount(
+    { email: 'User@Example.com', website: 'https://www.example.com/login' },
+    { email: 'user@example.com', website: 'example.com' }
+  ), true);
+  assert.equal(matchesAutofillAccount(
+    { username: 'alice', applicationIdentifier: 'com.example.app' },
+    { username: 'alice', applicationIdentifier: 'com.other.app' }
+  ), false);
 });

@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS = {
   screenshotProtection: true, // requires native FLAG_SECURE
   requireAuthToReveal: true,
   theme: 'dark',
+  language: 'en',
 };
 
 export const THEME_OPTIONS = ['system', 'dark', 'cream', 'pro'];

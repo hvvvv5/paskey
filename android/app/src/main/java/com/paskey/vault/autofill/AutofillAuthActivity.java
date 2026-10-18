@@ -61,7 +61,7 @@ public class AutofillAuthActivity extends FragmentActivity {
 
     private void showPicker() {
         try {
-            JSONArray items = PasKeyAutofillStore.load(this);
+            JSONArray items = PasKeyAutofillStore.loadAvailable(this);
             boolean cards = "cards".equals(getIntent().getStringExtra("selectorMode"));
             ArrayList<Integer> indexes = new ArrayList<>();
             ArrayList<String> labels = new ArrayList<>();
@@ -73,9 +73,12 @@ public class AutofillAuthActivity extends FragmentActivity {
                 if (itemIsCard != cards || !hasFillValue(item, cards)) continue;
 
                 String title = item.optString("displayTitle", item.optString("title", "PasKey"));
-                String subtitle = item.optString("displaySubtitle", "");
+                String subtitle = identitySubtitle(item);
                 if (subtitle.isEmpty()) {
-                    subtitle = item.optString("email", item.optString("username", item.optString("phone", item.optString("website", item.optString("applicationIdentifier", "")))));
+                    subtitle = item.optString(
+                            "website",
+                            item.optString("applicationIdentifier", "")
+                    );
                 }
                 labels.add(subtitle.isEmpty() ? title : title + "\n" + subtitle);
                 indexes.add(index);
@@ -97,6 +100,25 @@ public class AutofillAuthActivity extends FragmentActivity {
         }
     }
 
+    private String primaryIdentity(JSONObject item) {
+        if (item == null) return "";
+        String email = item.optString("email", "").trim();
+        if (!email.isEmpty()) return email;
+        String phone = item.optString("phone", "").trim();
+        if (!phone.isEmpty()) return phone;
+        return item.optString("username", "").trim();
+    }
+
+    private String identitySubtitle(JSONObject item) {
+        if (item == null) return "";
+        String email = item.optString("email", "").trim();
+        if (!email.isEmpty()) return "Email · " + email;
+        String phone = item.optString("phone", "").trim();
+        if (!phone.isEmpty()) return "Phone · " + phone;
+        String username = item.optString("username", "").trim();
+        return username.isEmpty() ? "" : "Username · " + username;
+    }
+
     private boolean hasFillValue(JSONObject item, boolean cards) {
         if (cards) return !item.optString("cardNumber", "").isEmpty();
         boolean hasIdentity = !item.optString("email", "").trim().isEmpty()
@@ -115,12 +137,22 @@ public class AutofillAuthActivity extends FragmentActivity {
             AutofillId usernameId = source.getParcelableExtra("usernameId");
             AutofillId passwordId = source.getParcelableExtra("passwordId");
             AutofillId phoneId = source.getParcelableExtra("phoneId");
+
+            ArrayList<AutofillId> emailIds = source.getParcelableArrayListExtra("emailIds");
+            ArrayList<AutofillId> usernameIds = source.getParcelableArrayListExtra("usernameIds");
+            ArrayList<AutofillId> passwordIds = source.getParcelableArrayListExtra("passwordIds");
+            ArrayList<AutofillId> phoneIds = source.getParcelableArrayListExtra("phoneIds");
+            emailIds = withFallback(emailIds, emailId);
+            usernameIds = withFallback(usernameIds, usernameId);
+            passwordIds = withFallback(passwordIds, passwordId);
+            phoneIds = withFallback(phoneIds, phoneId);
+
             AutofillId cardholderId = source.getParcelableExtra("cardholderId");
             AutofillId cardNumberId = source.getParcelableExtra("cardNumberId");
             AutofillId cardExpiryId = source.getParcelableExtra("cardExpiryId");
             AutofillId cardCvvId = source.getParcelableExtra("cardCvvId");
 
-            JSONArray items = PasKeyAutofillStore.load(this);
+            JSONArray items = PasKeyAutofillStore.loadAvailable(this);
             JSONObject item = itemIndex >= 0 && itemIndex < items.length() ? items.optJSONObject(itemIndex) : null;
             if (item == null) {
                 cancel();
@@ -128,7 +160,7 @@ public class AutofillAuthActivity extends FragmentActivity {
             }
 
             String title = item.optString("displayTitle", item.optString("title", "PasKey"));
-            String subtitle = item.optString("displaySubtitle", item.optString("email", item.optString("username", "")));
+            String subtitle = identitySubtitle(item);
             RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_2);
             presentation.setTextViewText(android.R.id.text1, title.isEmpty() ? "PasKey" : title);
             presentation.setTextViewText(android.R.id.text2, subtitle);
@@ -141,10 +173,35 @@ public class AutofillAuthActivity extends FragmentActivity {
                 hasValue |= setValue(dataset, cardExpiryId, item.optString("expiry", ""), presentation);
                 hasValue |= setValue(dataset, cardCvvId, item.optString("cvv", ""), presentation);
             } else {
-                hasValue |= setValue(dataset, emailId, item.optString("email", ""), presentation);
-                hasValue |= setValue(dataset, usernameId, item.optString("username", ""), presentation);
-                hasValue |= setValue(dataset, phoneId, item.optString("phone", ""), presentation);
-                hasValue |= setValue(dataset, passwordId, item.optString("password", ""), presentation);
+                String email = item.optString("email", "").trim();
+                String username = item.optString("username", "").trim();
+                String phone = item.optString("phone", "").trim();
+                String primaryIdentity = primaryIdentity(item);
+
+                int identityFieldCount =
+                        emailIds.size() + usernameIds.size() + phoneIds.size();
+
+                if (identityFieldCount <= 1) {
+                    // Many apps expose one generic "email / username / phone"
+                    // field. Fill whichever identity the saved account uses.
+                    hasValue |= setValues(dataset, emailIds, primaryIdentity, presentation);
+                    hasValue |= setValues(dataset, usernameIds, primaryIdentity, presentation);
+                    hasValue |= setValues(dataset, phoneIds, primaryIdentity, presentation);
+                } else {
+                    // Duplicate fields of the same kind all receive the same
+                    // value, while genuinely different identity types stay
+                    // separated.
+                    hasValue |= setValues(dataset, emailIds, email, presentation);
+                    hasValue |= setValues(dataset, usernameIds, username, presentation);
+                    hasValue |= setValues(dataset, phoneIds, phone, presentation);
+                }
+
+                hasValue |= setValues(
+                        dataset,
+                        passwordIds,
+                        item.optString("password", ""),
+                        presentation
+                );
             }
 
             if (!hasValue) {
@@ -154,11 +211,36 @@ public class AutofillAuthActivity extends FragmentActivity {
 
             Intent result = new Intent();
             result.putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset.build());
+            Bundle clientState = source.getBundleExtra(AutofillManager.EXTRA_CLIENT_STATE);
+            if (clientState != null) {
+                result.putExtra(AutofillManager.EXTRA_CLIENT_STATE, clientState);
+            }
             setResult(Activity.RESULT_OK, result);
             finish();
         } catch (Exception ignored) {
             cancel();
         }
+    }
+
+    private ArrayList<AutofillId> withFallback(
+            ArrayList<AutofillId> ids,
+            AutofillId fallback) {
+        ArrayList<AutofillId> result = ids == null ? new ArrayList<>() : ids;
+        if (fallback != null && !result.contains(fallback)) result.add(fallback);
+        return result;
+    }
+
+    private boolean setValues(
+            Dataset.Builder dataset,
+            ArrayList<AutofillId> ids,
+            String value,
+            RemoteViews presentation) {
+        if (ids == null || value == null || value.isEmpty()) return false;
+        boolean changed = false;
+        for (AutofillId id : ids) {
+            changed |= setValue(dataset, id, value, presentation);
+        }
+        return changed;
     }
 
     private boolean setValue(Dataset.Builder dataset, AutofillId id, String value, RemoteViews presentation) {

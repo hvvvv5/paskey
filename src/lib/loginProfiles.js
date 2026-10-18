@@ -3,6 +3,7 @@ const GENERIC_PROVIDER = {
   label: 'Website or app',
   mark: '•',
   color: '#7C3AED',
+  aliases: [],
   domains: [],
   packages: [],
 };
@@ -231,7 +232,7 @@ function normalizeProviderId(value) {
   return LOGIN_PROVIDERS.find((provider) => (
     provider.id === candidate
     || lower(provider.label) === candidate
-    || provider.aliases.includes(candidate)
+    || (Array.isArray(provider.aliases) ? provider.aliases : []).includes(candidate)
   ))?.id || '';
 }
 
@@ -281,7 +282,11 @@ function hasMeaningfulTitle(item, provider) {
   const titleLower = lower(title);
   const targetHost = normalizeHost(primaryWebsite(item));
   const targetPackage = lower(primaryPackage(item));
-  const knownProviderNames = [provider.id, provider.label, ...provider.aliases].map(lower);
+  const knownProviderNames = [
+    provider?.id,
+    provider?.label,
+    ...(Array.isArray(provider?.aliases) ? provider.aliases : []),
+  ].map(lower);
   return !knownProviderNames.includes(titleLower)
     && titleLower !== targetHost
     && titleLower !== targetPackage;

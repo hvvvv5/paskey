@@ -2,6 +2,26 @@ import { registerPlugin } from '@capacitor/core';
 
 export const PasKeySecurity = registerPlugin('PasKeySecurity');
 
+export async function getAutofillStatus() {
+  try {
+    const result = await PasKeySecurity.getAutofillStatus();
+    return {
+      supported: Boolean(result.supported),
+      enabled: Boolean(result.enabled),
+    };
+  } catch {
+    return { supported: false, enabled: false };
+  }
+}
+
+export async function requestEnableAutofill() {
+  return PasKeySecurity.requestEnableAutofill();
+}
+
+export async function openChromeAutofillSettings() {
+  return PasKeySecurity.openChromeAutofillSettings();
+}
+
 export async function getPendingAutofillSaves() {
   const result = await PasKeySecurity.getPendingAutofillSaves();
   return JSON.parse(result.json || '[]');
@@ -40,6 +60,32 @@ export async function hasBiometricVaultKey() {
   }
 }
 
+export async function authenticateSensitiveAction() {
+  const result = await PasKeySecurity.authenticateSensitiveAction();
+  return Boolean(result?.verified);
+}
+
+export async function savePdfToDownloads(filename, base64) {
+  const result = await PasKeySecurity.savePdfToDownloads({ filename, base64 });
+  return {
+    saved: Boolean(result?.saved),
+    filename: result?.filename || filename,
+    location: result?.location || '',
+    uri: result?.uri || '',
+    fallback: Boolean(result?.fallback),
+  };
+}
+
+export async function saveHtmlPdfToDownloads(filename, html) {
+  const result = await PasKeySecurity.saveHtmlPdfToDownloads({ filename, html });
+  return {
+    saved: Boolean(result?.saved),
+    filename: result?.filename || filename,
+    location: result?.location || '',
+    uri: result?.uri || '',
+  };
+}
+
 export async function clearNativeAutofillVault() {
   try { await PasKeySecurity.clearAutofillVault(); } catch { /* browser/no native bridge */ }
 }
@@ -55,4 +101,13 @@ export async function writeNativeVaultEntity(entity, rows) {
 
 export async function clearNativeVaultStorage() {
   try { await PasKeySecurity.clearVaultStorage(); } catch { /* browser/no native bridge */ }
+}
+
+export async function setScreenshotProtection(enabled) {
+  try {
+    const result = await PasKeySecurity.setScreenshotProtection({ enabled: Boolean(enabled) });
+    return Boolean(result.enabled);
+  } catch {
+    return false;
+  }
 }
