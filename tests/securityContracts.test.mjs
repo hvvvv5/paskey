@@ -48,13 +48,14 @@ test('PDF export requires explicit re-authentication and never receives the Mast
   assert.doesNotMatch(exporter, /verifyMasterPassword/);
 });
 
-test('Android PDF export writes real HTML text into public Downloads', async () => {
+test('Android PDF export uses the official WebView print pipeline', async () => {
   const native = await read('android/app/src/main/java/com/paskey/vault/plugin/PasKeySecurityPlugin.java');
   const exporter = await read('src/lib/passwordPdfExport.js');
   assert.match(native, /saveHtmlPdfToDownloads\(PluginCall call\)/);
-  assert.match(native, /MediaStore\.Downloads\.EXTERNAL_CONTENT_URI/);
-  assert.match(native, /DIRECTORY_DOWNLOADS \+ "\/PasKey"/);
   assert.match(native, /createPrintDocumentAdapter/);
+  assert.match(native, /PrintManager/);
+  assert.match(native, /printManager\.print\(/);
+  assert.match(native, /PrintAttributes\.MediaSize\.ISO_A4/);
   assert.match(exporter, /saveHtmlPdfToDownloads\(filename, html\)/);
   assert.match(exporter, /Capacitor\.getPlatform\(\) === 'android'/);
 });
