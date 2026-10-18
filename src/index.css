@@ -639,3 +639,78 @@ a,
     animation: none !important;
   }
 }
+
+
+/* Password PDF export dialog follows the active PasKey theme. */
+.pk-pdf-dialog {
+  border-color: var(--pk-control-border) !important;
+  background: var(--pk-control-bg) !important;
+  color: var(--pk-text) !important;
+}
+
+.pk-pdf-dialog-description,
+.pk-pdf-muted {
+  color: var(--pk-muted) !important;
+}
+
+.pk-pdf-warning {
+  border-color: color-mix(in srgb, var(--pk-accent) 48%, transparent) !important;
+  background: color-mix(in srgb, var(--pk-accent) 12%, transparent) !important;
+  color: var(--pk-text) !important;
+}
+
+.pk-pdf-biometric-button {
+  border-color: var(--pk-accent) !important;
+  background: var(--pk-control-selected) !important;
+  color: var(--pk-text) !important;
+}
+
+.pk-pdf-biometric-button:hover,
+.pk-pdf-biometric-button:focus-visible {
+  background: var(--pk-control-raised) !important;
+  box-shadow: 0 0 0 2px var(--pk-control-selected);
+}
+
+.pk-pdf-biometric-button svg {
+  color: var(--pk-accent) !important;
+}
+
+.pk-pdf-divider {
+  color: var(--pk-muted) !important;
+}
+
+.pk-pdf-divider > span:first-child,
+.pk-pdf-divider > span:last-child {
+  background: var(--pk-control-border);
+}
+
+.pk-pdf-input {
+  border-color: var(--pk-control-border) !important;
+  background: var(--pk-control-raised) !important;
+  color: var(--pk-text) !important;
+}
+
+.pk-pdf-secondary-button {
+  border-color: var(--pk-control-border) !important;
+  background: transparent !important;
+  color: var(--pk-muted) !important;
+}
+
+.pk-pdf-secondary-button:hover,
+.pk-pdf-secondary-button:focus-visible {
+  background: var(--pk-control-selected) !important;
+  color: var(--pk-text) !important;
+}
+
+.pk-pdf-primary-button {
+  background: var(--pk-accent) !important;
+  color: var(--pk-bg) !important;
+}
+
+html[data-pk-theme='cream'] .pk-pdf-primary-button {
+  color: #FFF9F0 !important;
+}
+
+html[data-pk-theme='pro'] .pk-pdf-primary-button {
+  color: #030301 !important;
+}
