@@ -5,6 +5,8 @@ import android.app.assist.AssistStructure;
 import android.app.slice.Slice;
 import android.graphics.drawable.Icon;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Build;
@@ -68,19 +70,26 @@ public class PasKeyAutofillService extends AutofillService {
     private static final String STATE_PASSWORD_ID = "paskey.passwordId";
     private static final String STATE_IDENTITY_KIND = "paskey.identityKind";
     private static final String STATE_WEB_DOMAIN = "paskey.webDomain";
+    private static final String STATE_WEB_SCHEME = "paskey.webScheme";
     private static final String STATE_PACKAGE = "paskey.package";
 
     private AutofillId emailId;
     private AutofillId usernameId;
     private AutofillId passwordId;
-    private final ArrayList<AutofillId> newPasswordIds = new ArrayList<>();
     private AutofillId phoneId;
+    private final ArrayList<AutofillId> emailIds = new ArrayList<>();
+    private final ArrayList<AutofillId> usernameIds = new ArrayList<>();
+    private final ArrayList<AutofillId> passwordIds = new ArrayList<>();
+    private final ArrayList<AutofillId> phoneIds = new ArrayList<>();
+    private final ArrayList<AutofillId> newPasswordIds = new ArrayList<>();
+    private AutofillId lastGenericIdentityCandidate;
     private AutofillId cardholderId;
     private AutofillId cardNumberId;
     private AutofillId cardExpiryId;
     private AutofillId cardCvvId;
     private String targetPackage = "";
     private String targetWebDomain = "";
+    private String targetWebScheme = "";
 
     @Override
     public void onFillRequest(
@@ -210,14 +219,20 @@ public class PasKeyAutofillService extends AutofillService {
         emailId = null;
         usernameId = null;
         passwordId = null;
-        newPasswordIds.clear();
         phoneId = null;
+        emailIds.clear();
+        usernameIds.clear();
+        passwordIds.clear();
+        phoneIds.clear();
+        newPasswordIds.clear();
+        lastGenericIdentityCandidate = null;
         cardholderId = null;
         cardNumberId = null;
         cardExpiryId = null;
         cardCvvId = null;
         targetPackage = "";
         targetWebDomain = "";
+        targetWebScheme = "";
     }
 
     private boolean hasLoginFields() {
@@ -315,14 +330,15 @@ public class PasKeyAutofillService extends AutofillService {
 
             String identity = primaryIdentity(item);
             if (!identity.isEmpty()) {
-                hasField |= associateFilterableIdentity(dataset, emailId, identity, presentation);
-                hasField |= associateFilterableIdentity(dataset, usernameId, identity, presentation);
-                hasField |= associateFilterableIdentity(dataset, phoneId, identity, presentation);
+                hasField |= associateFilterableIdentity(dataset, emailIds, identity, presentation);
+                hasField |= associateFilterableIdentity(dataset, usernameIds, identity, presentation);
+                hasField |= associateFilterableIdentity(dataset, phoneIds, identity, presentation);
             }
 
-            // The password is never included in the locked dataset. It is
-            // returned only after AutofillAuthActivity authenticates the user.
-            hasField |= associate(dataset, passwordId, presentation);
+            // Password values stay out of the locked dataset. Every password
+            // field is associated so duplicate / mirrored login fields can
+            // trigger the same authenticated PasKey account.
+            hasField |= associate(dataset, passwordIds, presentation);
         }
         return hasField ? dataset.build() : null;
     }
@@ -422,10 +438,10 @@ public class PasKeyAutofillService extends AutofillService {
             hasField |= associate(dataset, cardExpiryId, presentation);
             hasField |= associate(dataset, cardCvvId, presentation);
         } else {
-            hasField |= associate(dataset, emailId, presentation);
-            hasField |= associate(dataset, usernameId, presentation);
-            hasField |= associate(dataset, phoneId, presentation);
-            hasField |= associate(dataset, passwordId, presentation);
+            hasField |= associate(dataset, emailIds, presentation);
+            hasField |= associate(dataset, usernameIds, presentation);
+            hasField |= associate(dataset, phoneIds, presentation);
+            hasField |= associate(dataset, passwordIds, presentation);
         }
         return hasField ? dataset.build() : null;
     }
@@ -454,6 +470,18 @@ public class PasKeyAutofillService extends AutofillService {
         return true;
     }
 
+    private boolean associate(
+            Dataset.Builder dataset,
+            List<AutofillId> ids,
+            RemoteViews presentation) {
+        boolean associated = false;
+        if (ids == null) return false;
+        for (AutofillId id : ids) {
+            associated |= associate(dataset, id, presentation);
+        }
+        return associated;
+    }
+
     private boolean associateFilterableIdentity(
             Dataset.Builder dataset,
             AutofillId id,
@@ -466,6 +494,19 @@ public class PasKeyAutofillService extends AutofillService {
         // password is placed in the response before authentication succeeds.
         dataset.setValue(id, AutofillValue.forText(identity), presentation);
         return true;
+    }
+
+    private boolean associateFilterableIdentity(
+            Dataset.Builder dataset,
+            List<AutofillId> ids,
+            String identity,
+            RemoteViews presentation) {
+        boolean associated = false;
+        if (ids == null) return false;
+        for (AutofillId id : ids) {
+            associated |= associateFilterableIdentity(dataset, id, identity, presentation);
+        }
+        return associated;
     }
 
 
@@ -578,6 +619,10 @@ public class PasKeyAutofillService extends AutofillService {
         intent.putExtra("usernameId", usernameId);
         intent.putExtra("passwordId", passwordId);
         intent.putExtra("phoneId", phoneId);
+        intent.putParcelableArrayListExtra("emailIds", new ArrayList<>(emailIds));
+        intent.putParcelableArrayListExtra("usernameIds", new ArrayList<>(usernameIds));
+        intent.putParcelableArrayListExtra("passwordIds", new ArrayList<>(passwordIds));
+        intent.putParcelableArrayListExtra("phoneIds", new ArrayList<>(phoneIds));
         intent.putExtra("cardholderId", cardholderId);
         intent.putExtra("cardNumberId", cardNumberId);
         intent.putExtra("cardExpiryId", cardExpiryId);
@@ -631,6 +676,9 @@ public class PasKeyAutofillService extends AutofillService {
         if (!targetWebDomain.isEmpty()) {
             state.putString(STATE_WEB_DOMAIN, targetWebDomain);
         }
+        if (!targetWebScheme.isEmpty()) {
+            state.putString(STATE_WEB_SCHEME, targetWebScheme);
+        }
         if (!targetPackage.isEmpty()) {
             state.putString(STATE_PACKAGE, targetPackage);
         }
@@ -661,6 +709,20 @@ public class PasKeyAutofillService extends AutofillService {
                 requiredIds.toArray(new AutofillId[0])
         );
 
+        ArrayList<AutofillId> optionalIds = new ArrayList<>();
+        addOptionalIds(optionalIds, emailIds, requiredIds);
+        addOptionalIds(optionalIds, usernameIds, requiredIds);
+        addOptionalIds(optionalIds, phoneIds, requiredIds);
+        addOptionalIds(optionalIds, passwordIds, requiredIds);
+        if (!optionalIds.isEmpty()) {
+            builder.setOptionalIds(optionalIds.toArray(new AutofillId[0]));
+        }
+
+        String description = saveTargetDescription();
+        if (!description.isEmpty()) {
+            builder.setDescription(description);
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 && (identityId == null || savedPasswordId == null)) {
             builder.setFlags(SaveInfo.FLAG_DELAY_SAVE);
@@ -671,12 +733,55 @@ public class PasKeyAutofillService extends AutofillService {
         return builder.build();
     }
 
+    private void addOptionalIds(
+            ArrayList<AutofillId> output,
+            List<AutofillId> candidates,
+            List<AutofillId> requiredIds) {
+        if (candidates == null) return;
+        for (AutofillId id : candidates) {
+            if (id == null || requiredIds.contains(id) || output.contains(id)) continue;
+            output.add(id);
+        }
+    }
+
+    private String saveTargetDescription() {
+        if (!targetWebDomain.isEmpty()) {
+            String scheme = targetWebScheme.isEmpty() ? "https" : targetWebScheme;
+            return "PasKey · " + scheme + "://" + targetWebDomain;
+        }
+        if (!targetPackage.isEmpty()) {
+            return "PasKey · " + applicationLabel(targetPackage);
+        }
+        return "";
+    }
+
+    private String applicationLabel(String packageName) {
+        if (packageName == null || packageName.trim().isEmpty()) return "";
+        try {
+            PackageManager manager = getPackageManager();
+            ApplicationInfo info = manager.getApplicationInfo(packageName, 0);
+            CharSequence label = manager.getApplicationLabel(info);
+            if (label != null && !label.toString().trim().isEmpty()) {
+                return label.toString().trim();
+            }
+        } catch (Exception ignored) {
+            // Package name remains a stable association when a label is unavailable.
+        }
+        return packageName.trim();
+    }
+
     private void findFields(AssistStructure.ViewNode node) {
         if (node == null) return;
         AutofillId id = node.getAutofillId();
         String webDomain = node.getWebDomain();
         if (webDomain != null && !webDomain.trim().isEmpty()) {
-            targetWebDomain = webDomain.trim().toLowerCase(Locale.ROOT);
+            targetWebDomain = PasKeyAutofillMatcher.normalizeHost(webDomain);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            String webScheme = node.getWebScheme();
+            if (webScheme != null && !webScheme.trim().isEmpty()) {
+                targetWebScheme = webScheme.trim().toLowerCase(Locale.ROOT);
+            }
         }
 
         if (id != null) {
@@ -716,25 +821,57 @@ public class PasKeyAutofillService extends AutofillService {
             if (newPasswordField && !newPasswordIds.contains(id)) {
                 newPasswordIds.add(id);
             }
-            if (cardNumberId == null && containsAny(value, "creditcardnumber", "credit_card_number", "cardnumber", "card_number", "cc-number", "cc_number")) {
+
+            boolean cardNumber = containsAny(value, "creditcardnumber", "credit_card_number", "cardnumber", "card_number", "cc-number", "cc_number");
+            boolean cardExpiry = containsAny(value, "cc-exp", "expiry", "expiration", "exp-date", "exp_date", "mm/yy", "mm/yyyy");
+            boolean cardCvv = containsAny(value, "cvv", "cvc", "securitycode", "security_code", "cc-csc");
+            boolean cardholder = containsAny(value, "cardholder", "card_holder", "nameoncard", "name_on_card", "cc-name");
+
+            if (cardNumber && cardNumberId == null) {
                 cardNumberId = id;
-            } else if (cardExpiryId == null && containsAny(value, "cc-exp", "expiry", "expiration", "exp-date", "exp_date", "mm/yy", "mm/yyyy")) {
+            } else if (cardExpiry && cardExpiryId == null) {
                 cardExpiryId = id;
-            } else if (cardCvvId == null && containsAny(value, "cvv", "cvc", "securitycode", "security_code", "cc-csc")) {
+            } else if (cardCvv && cardCvvId == null) {
                 cardCvvId = id;
-            } else if (cardholderId == null && containsAny(value, "cardholder", "card_holder", "nameoncard", "name_on_card", "cc-name")) {
+            } else if (cardholder && cardholderId == null) {
                 cardholderId = id;
-            } else if (passwordId == null && fieldType == FIELD_PASSWORD) {
-                passwordId = id;
-            } else if (emailId == null && fieldType == FIELD_EMAIL) {
-                emailId = id;
-            } else if (phoneId == null && fieldType == FIELD_PHONE) {
-                phoneId = id;
-            } else if (usernameId == null && fieldType == FIELD_USERNAME) {
-                usernameId = id;
+            } else if (fieldType == FIELD_PASSWORD) {
+                addUnique(passwordIds, id);
+                if (passwordId == null) passwordId = id;
+
+                if (preferredIdentityId() == null && lastGenericIdentityCandidate != null) {
+                    usernameId = lastGenericIdentityCandidate;
+                    addUnique(usernameIds, lastGenericIdentityCandidate);
+                }
+            } else if (fieldType == FIELD_EMAIL) {
+                addUnique(emailIds, id);
+                if (emailId == null) emailId = id;
+            } else if (fieldType == FIELD_PHONE) {
+                addUnique(phoneIds, id);
+                if (phoneId == null) phoneId = id;
+            } else if (fieldType == FIELD_USERNAME) {
+                addUnique(usernameIds, id);
+                if (usernameId == null) usernameId = id;
+            } else if (isGenericIdentityCandidate(inputClass, value)) {
+                lastGenericIdentityCandidate = id;
             }
         }
         for (int i = 0; i < node.getChildCount(); i++) findFields(node.getChildAt(i));
+    }
+
+    private void addUnique(ArrayList<AutofillId> ids, AutofillId id) {
+        if (id != null && !ids.contains(id)) ids.add(id);
+    }
+
+    private boolean isGenericIdentityCandidate(int inputClass, String metadata) {
+        if (inputClass != InputType.TYPE_CLASS_TEXT) return false;
+        String value = metadata == null ? "" : metadata.toLowerCase(Locale.ROOT);
+        return !containsAny(
+                value,
+                "search", "query", "otp", "one-time", "onetime",
+                "verification", "captcha", "promo", "coupon",
+                "creditcard", "cardnumber", "cc-number", "address",
+                "firstname", "first_name", "lastname", "last_name");
     }
 
     private void append(StringBuilder text, String value) {
@@ -762,10 +899,15 @@ public class PasKeyAutofillService extends AutofillService {
         if (containsAny(value, "one-time", "one_time", "onetime", "otp", "sms code", "sms_code", "verification code", "verification_code", "2fa")) {
             return FIELD_IGNORED;
         }
-        if (containsAny(value, "email", "e-mail")) return FIELD_EMAIL;
-        if (containsAny(value, "phone", "telephone", "mobile", "phone_number", "phonenumber")) return FIELD_PHONE;
-        if (containsAny(value, "password", "passwd", "passcode", "login_pin", "login pin")) return FIELD_PASSWORD;
-        if (containsAny(value, "username", "user name", "login", "userid", "user_id", "customerid", "customer_id", "accountid", "account_id")) {
+        if (containsAny(value, "email", "e-mail", "mail address", "courriel")) return FIELD_EMAIL;
+        if (containsAny(value, "phone", "telephone", "mobile", "phone_number", "phonenumber", "tel", "رقم الهاتف", "الهاتف")) return FIELD_PHONE;
+        if (containsAny(value, "password", "passwd", "passcode", "login_pin", "login pin", "mot de passe", "كلمة المرور")) return FIELD_PASSWORD;
+        if (containsAny(
+                value,
+                "username", "user name", "login", "userid", "user_id",
+                "loginid", "login_id", "identifier", "account", "accountid",
+                "account_id", "customerid", "customer_id", "memberid",
+                "member_id", "handle", "nom d'utilisateur", "اسم المستخدم")) {
             return FIELD_USERNAME;
         }
         return FIELD_NONE;
@@ -977,16 +1119,16 @@ public class PasKeyAutofillService extends AutofillService {
         if (!value.isEmpty()) {
             switch (classifyField(node.getAutofillHints(), metadata.toString())) {
                 case FIELD_EMAIL:
-                    captured.email = value.trim();
+                    if (captured.email.isEmpty()) captured.email = value.trim();
                     break;
                 case FIELD_PHONE:
-                    captured.phone = value.trim();
+                    if (captured.phone.isEmpty()) captured.phone = value.trim();
                     break;
                 case FIELD_USERNAME:
-                    captured.username = value.trim();
+                    if (captured.username.isEmpty()) captured.username = value.trim();
                     break;
                 case FIELD_PASSWORD:
-                    captured.password = value;
+                    if (captured.password.isEmpty()) captured.password = value;
                     break;
                 default:
                     break;
@@ -1024,11 +1166,14 @@ public class PasKeyAutofillService extends AutofillService {
     }
 
     private String buildLoginTitle(String website, String applicationIdentifier, String identity) {
-        String service = "Website";
-        if ("accounts.google.com".equals(website)) service = "Google";
-        else if ("com.instagram.android".equals(applicationIdentifier)) service = "Instagram";
-        else if ("com.whatsapp".equals(applicationIdentifier)) service = "WhatsApp";
-        else if (website.isEmpty()) service = "Android app";
+        String service;
+        if (!website.isEmpty()) {
+            service = website;
+        } else if (!applicationIdentifier.isEmpty()) {
+            service = applicationLabel(applicationIdentifier);
+        } else {
+            service = "Login";
+        }
         return service + " — " + identity;
     }
 
