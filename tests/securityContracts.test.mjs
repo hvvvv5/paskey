@@ -80,7 +80,7 @@ test('password PDF uses real HTML text and typed actionable links instead of can
   assert.doesNotMatch(exporter, /addImage\(/);
   assert.match(exporter, /mailto:/);
   assert.match(exporter, /tel:/);
-  assert.match(exporter, /play\.google\.com\\/store\\/apps\\/details/);
+  assert.match(exporter, /play\.google\.com\/store\/apps\/details/);
   assert.match(exporter, /saveHtmlPdfToDownloads\(filename, html\)/);
   assert.match(exporter, /field\.name === 'password' \? 'password'/);
   assert.match(native, /createPrintDocumentAdapter/);
