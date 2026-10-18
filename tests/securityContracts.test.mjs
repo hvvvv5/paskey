@@ -48,13 +48,14 @@ test('PDF export requires explicit re-authentication and never receives the Mast
   assert.doesNotMatch(exporter, /verifyMasterPassword/);
 });
 
-test('Android PDF export writes into public Downloads through MediaStore', async () => {
+test('Android PDF export writes real HTML text into public Downloads', async () => {
   const native = await read('android/app/src/main/java/com/paskey/vault/plugin/PasKeySecurityPlugin.java');
   const exporter = await read('src/lib/passwordPdfExport.js');
-  assert.match(native, /savePdfToDownloads\(PluginCall call\)/);
+  assert.match(native, /saveHtmlPdfToDownloads\(PluginCall call\)/);
   assert.match(native, /MediaStore\.Downloads\.EXTERNAL_CONTENT_URI/);
-  assert.match(native, /Environment\.DIRECTORY_DOWNLOADS \+ "\\/PasKey"/);
-  assert.match(exporter, /savePdfToDownloads\(filename, base64\)/);
+  assert.match(native, /DIRECTORY_DOWNLOADS \+ "\/PasKey"/);
+  assert.match(native, /createPrintDocumentAdapter/);
+  assert.match(exporter, /saveHtmlPdfToDownloads\(filename, html\)/);
   assert.match(exporter, /Capacitor\.getPlatform\(\) === 'android'/);
 });
 
@@ -79,7 +80,7 @@ test('password PDF uses real HTML text and typed actionable links instead of can
   assert.doesNotMatch(exporter, /addImage\(/);
   assert.match(exporter, /mailto:/);
   assert.match(exporter, /tel:/);
-  assert.match(exporter, /play\.google\.com\/store\/apps\/details/);
+  assert.match(exporter, /play\.google\.com\\/store\\/apps\\/details/);
   assert.match(exporter, /saveHtmlPdfToDownloads\(filename, html\)/);
   assert.match(exporter, /field\.name === 'password' \? 'password'/);
   assert.match(native, /createPrintDocumentAdapter/);
