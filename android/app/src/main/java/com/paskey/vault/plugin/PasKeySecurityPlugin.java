@@ -398,6 +398,61 @@ public class PasKeySecurityPlugin extends Plugin {
 
 
     @PluginMethod
+    public void authenticateSensitiveAction(PluginCall call) {
+        FragmentActivity activity = getActivity();
+        if (!isUsableActivity(activity)) {
+            call.reject("Activity unavailable");
+            return;
+        }
+
+        String availabilityError = biometricKeyAvailabilityError(activity);
+        if (availabilityError != null) {
+            call.reject(availabilityError);
+            return;
+        }
+
+        activity.runOnUiThread(() -> {
+            AtomicBoolean completed = new AtomicBoolean(false);
+            try {
+                Executor executor = ContextCompat.getMainExecutor(activity);
+                BiometricPrompt prompt = new BiometricPrompt(
+                        activity,
+                        executor,
+                        new BiometricPrompt.AuthenticationCallback() {
+                            @Override
+                            public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                                if (!completed.compareAndSet(false, true)) return;
+                                JSObject response = new JSObject();
+                                response.put("verified", true);
+                                call.resolve(response);
+                            }
+
+                            @Override
+                            public void onAuthenticationError(int errorCode, CharSequence errorText) {
+                                if (!completed.compareAndSet(false, true)) return;
+                                call.reject(biometricAuthenticationError(errorCode, errorText));
+                            }
+
+                            @Override
+                            public void onAuthenticationFailed() {
+                                // Android keeps the prompt open so the user can retry.
+                            }
+                        }
+                );
+                prompt.authenticate(strongPromptInfo(
+                        "Confirm sensitive export",
+                        "Verify your identity before exporting readable passwords",
+                        "Use Master Password"
+                ));
+            } catch (Exception exception) {
+                if (completed.compareAndSet(false, true)) {
+                    call.reject("Unable to start biometric authentication. Use your Master Password.", exception);
+                }
+            }
+        });
+    }
+
+    @PluginMethod
     public void setScreenshotProtection(PluginCall call) {
         Boolean enabled = call.getBoolean("enabled", true);
         FragmentActivity activity = getActivity();
